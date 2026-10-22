@@ -504,7 +504,7 @@ final class _Run {
         case 'create':
           return later(party.create());
         case 'join':
-          return later(party.join(s['code'] as String));
+          return later(party.join(s['code'] as String, create: s['create'] as bool? ?? false));
         case 'choose':
           return later(party.choose(candidate(s['candidate'] as Json)));
         case 'detachPlayer':

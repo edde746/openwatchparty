@@ -41,8 +41,9 @@ const (
 )
 
 // Server holds the live rooms and connections. Lock order: Room.mu, then
-// Server.mu, which is held only for map access. Every other mutex (limits,
-// store, usage, conns) is a leaf.
+// Server.mu, which is held only for map access and the room slots that go
+// with a join's insertion and a removal (claim, removeRoom). Every other
+// mutex (limits, store, usage, conns) is a leaf.
 type Server struct {
 	cfg      Config
 	prefixes string
@@ -167,8 +168,8 @@ func isCodeSeparator(r rune) bool {
 	return false
 }
 
-// create makes a room with c as its host, unless the relay already holds
-// maxRooms rooms.
+// create makes a room with a new code and c as its host, unless the relay
+// already holds maxRooms rooms.
 func (s *Server) create(c *conn, name, client string) bool {
 	r := newRoom(s, "", s.now())
 	r.owner = c.ip
@@ -184,19 +185,86 @@ func (s *Server) create(c *conn, name, client string) bool {
 	}
 	s.rooms[r.code] = r
 	s.mu.Unlock()
-	r.arm(&r.maxAge, r.scaledMs(maxRoomAgeMs), func(int64) { r.close("expired") })
-	r.publish(r.add(c, name, client, s.now()))
+	r.open(c, name, client)
 	return true
 }
 
-// removeRoom forgets a closed room; the caller holds r.mu.
+// join adds c to the room that code names (SPEC.md §7.2). With create, a
+// code that names no room gets a new room with c as its host, and made
+// reports that. A room that closed after the lookup has left the map, so its
+// code is free and a join with create looks again.
+func (s *Server) join(c *conn, code, name, client string, create bool) (made bool, err *relayError) {
+	for {
+		var r *Room
+		if create {
+			if r, err = s.lookupOrMake(c, code, name, client); r == nil {
+				return err == nil, err
+			}
+		} else if r = s.lookup(code); r == nil {
+			return false, &relayError{errRoomNotFound, "no room has that code"}
+		}
+		r.mu.Lock()
+		if !create || !r.closed {
+			err = r.join(c, name, client, s.now())
+			r.mu.Unlock()
+			return false, err
+		}
+		r.mu.Unlock()
+	}
+}
+
+// lookupOrMake finds the room that code names, as lookup does, or else makes
+// a room with that code and c as its host. It returns the room it found, or
+// nil after making one or with the refusal.
+func (s *Server) lookupOrMake(c *conn, code, name, client string) (*Room, *relayError) {
+	code = normalizeCode(code)
+	if !validCode(code) {
+		return nil, &relayError{errRoomNotFound, "no room has that code"}
+	}
+	r := newRoom(s, code, s.now())
+	r.owner = c.ip
+	r.mu.Lock() // before the room becomes visible to join
+	defer r.mu.Unlock()
+	if found, err := s.claim(r); found != nil || err != nil {
+		return found, err
+	}
+	r.open(c, name, client)
+	return nil, nil
+}
+
+// claim puts the new room r in the map under its code, unless a room holds
+// that code already, which it returns, or a refusal of SPEC.md §7.2 applies.
+// The lookup and the insertion share one hold of s.mu, so of two joins with
+// create for a free code one makes the room and the other finds it.
+func (s *Server) claim(r *Room) (*Room, *relayError) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if found := s.rooms[r.code]; found != nil {
+		return found, nil
+	}
+	switch {
+	case !containsByte(s.prefixes, r.code[0]):
+		return nil, &relayError{errRoomNotFound, "no room has that code"}
+	case !s.limits.holdRoom(r.owner):
+		return nil, &relayError{errRateLimited, "too many rooms from this address"}
+	case len(s.rooms) >= s.cfg.Limits.MaxRooms:
+		s.limits.releaseRoom(r.owner)
+		return nil, &relayError{errRelayFull, "the relay holds its maximum number of rooms"}
+	}
+	s.rooms[r.code] = r
+	return nil, nil
+}
+
+// removeRoom forgets a closed room; the caller holds r.mu. The room leaves
+// the map and gives back its creator's slot in one hold of s.mu, so claim
+// never sees the code free while the slot is still taken.
 func (s *Server) removeRoom(r *Room) {
 	s.mu.Lock()
 	if s.rooms[r.code] == r {
 		delete(s.rooms, r.code)
 	}
-	s.mu.Unlock()
 	s.limits.releaseRoom(r.owner) // a restored room's owner counts nowhere
+	s.mu.Unlock()
 	s.saveLater()
 }
 

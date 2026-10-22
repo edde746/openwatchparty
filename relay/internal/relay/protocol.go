@@ -347,6 +347,25 @@ func (a *args) optInteger(key string, min int64) (int64, bool) {
 	return a.integer(key, min), true
 }
 
+func (a *args) boolean(key string) bool {
+	switch string(a.f[key]) {
+	case "true":
+		return true
+	case "false":
+	default:
+		a.fail(key + " must be a boolean")
+	}
+	return false
+}
+
+// optBoolean is an optional boolean, false when absent.
+func (a *args) optBoolean(key string) bool {
+	if _, present := a.f[key]; !present {
+		return false
+	}
+	return a.boolean(key)
+}
+
 func (a *args) enum(key string, allowed ...string) string {
 	if s, ok := jsonString(a.f[key]); ok {
 		for _, v := range allowed {
@@ -431,13 +450,7 @@ func parseCommand(typ string, f fields) (*command, *relayError) {
 	case "transferHost", "kick":
 		cmd.peerID = a.str("peerId")
 	case "lock":
-		switch string(f["locked"]) {
-		case "true":
-			cmd.locked = true
-		case "false":
-		default:
-			a.fail("locked must be a boolean")
-		}
+		cmd.locked = a.boolean("locked")
 	}
 	if a.err != nil {
 		return nil, a.err

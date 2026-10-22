@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `join(code, create: true)` makes the room when no room has the code, and the party is its host. Apps use it to bring a group back to a code they used before.
+
 ## 1.0.0
 
 The first release. It implements the client behaviour in [`spec/SDK.md`](../../spec/SDK.md).

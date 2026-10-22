@@ -14,11 +14,12 @@ enum Out {
         }
     }
 
-    static func join(code: String, name: String, client: String) -> String {
+    static func join(code: String, name: String, client: String, create: Bool) -> String {
         message("join") {
             $0.put("code", code)
             $0.put("name", name)
             $0.put("client", client)
+            if create { $0.put("create", true) }
         }
     }
 

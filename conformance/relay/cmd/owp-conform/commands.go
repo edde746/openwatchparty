@@ -118,6 +118,139 @@ func scJoinErrors(x *sc) error {
 	return nil
 }
 
+// scJoinCreate: a join with create for a free code makes the room with that code, normalized from the way a user typed
+// it, and the sender as its host at rev 1 with a new room's state (§9.3). For a held room, a join with create joins it
+// as join does, and two at once for a free code make one room that both are in. Without create, with create false, or
+// with a code the relay doesn't create (not a code, or a first symbol outside its creation prefixes), a free code gets
+// room_not_found, and a create that isn't a boolean is invalid_message. After end, a former member that read closed
+// makes the room again with a join with create, and the former host's join with create joins it (§5.1, §7.2, §11.8).
+func scJoinCreate(x *sc) error {
+	a, _, err := x.create("A") // its code starts with one of the relay's creation prefixes
+	if err != nil {
+		return err
+	}
+	code := freeCode(a.Code[0])
+	e, err := x.dial("E")
+	if err != nil {
+		return err
+	}
+	refused := func(m Msg, what string) error {
+		j, err := enter(e, m)
+		return refusedWithRe(j, err, "room_not_found", "join", what)
+	}
+	createFalse := joinMsg(code, "E")
+	createFalse["create"] = false
+	if err := errs(refused(joinMsg(code, "E"), "join without create of a free code"),
+		refused(createFalse, "join with create false of a free code")); err != nil {
+		return err
+	}
+	lost := []string{"ABC", "IIIIII", code + "2"}
+	if f := x.foreignCode(); f != "" {
+		lost = append(lost, f)
+	}
+	for _, l := range lost {
+		if err := refused(joinCreateMsg(l, "E"), fmt.Sprintf("join with create of %q", l)); err != nil {
+			return err
+		}
+	}
+	head := `{"type":"join","code":"` + code + `","name":"E","client":"` + clientName + `","create":`
+	if err := sendRawCases(e, []rawCase{
+		{head + `"true"}`, "invalid_message", "join"},
+		{head + `1}`, "invalid_message", "join"},
+		{head + `null}`, "invalid_message", "join"},
+	}); err != nil {
+		return err
+	}
+
+	b, err := x.dial("B")
+	if err != nil {
+		return err
+	}
+	typed := lowerCode(code[:3]) + "-" + lowerCode(code[3:])
+	j, err := enter(b, joinCreateMsg(typed, "B"))
+	if err != nil {
+		return fmt.Errorf("join with create of a free code typed %q: %w", typed, err)
+	}
+	r := obj(j, "room")
+	if str(j, "code") != code || str(r, "code") != code || num(r, "rev") != 1 || num(r, "epoch") != 0 ||
+		str(r, "phase") != "idle" || num(r, "positionMs") != 0 || num(r, "rate") != 1 || str(r, "control") != "host" ||
+		r["locked"] != false || len(participants(r)) != 1 || hostOf(r) != b.PeerID {
+		return fmt.Errorf("join with create of a free code typed %q: code %s, room %v; want code %s and a new room "+
+			"with B as host", typed, str(j, "code"), r, code)
+	}
+	if v, ok := j["media"]; !ok || v != nil {
+		return fmt.Errorf("joined.media = %v (present %v), want null", v, ok)
+	}
+	c, err := x.dial("C")
+	if err != nil {
+		return err
+	}
+	j, err = enter(c, joinCreateMsg(code, "C"))
+	if err != nil {
+		return fmt.Errorf("join with create of a held room: %w", err)
+	}
+	if r := obj(j, "room"); num(r, "rev") != 2 || len(participants(r)) != 2 || hostOf(r) != b.PeerID {
+		return fmt.Errorf("join with create of a held room: %v; want rev 2 with B as host", r)
+	}
+	d, _, err := x.join(code, "D")
+	if err != nil {
+		return fmt.Errorf("join of a room that a join with create made: %w", err)
+	}
+
+	// Two at once for a free code: one makes the room, the other joins it.
+	two := freeCode(a.Code[0])
+	p, err := x.dial("P")
+	if err != nil {
+		return err
+	}
+	q, err := x.dial("Q")
+	if err != nil {
+		return err
+	}
+	if err := errs(p.send(joinCreateMsg(two, "P")), q.send(joinCreateMsg(two, "Q"))); err != nil {
+		return err
+	}
+	jp, errP := entered(p, "join")
+	jq, errQ := entered(q, "join")
+	if err := errs(errP, errQ); err != nil {
+		return fmt.Errorf("two joins with create at once for a free code: %w", err)
+	}
+	maker, rm, rg := p, obj(jp, "room"), obj(jq, "room")
+	if num(rg, "rev") == 1 {
+		maker, rm, rg = q, rg, rm
+	}
+	if str(jp, "code") != two || str(jq, "code") != two || num(rm, "rev") != 1 || hostOf(rm) != maker.PeerID ||
+		num(rg, "rev") != 2 || hostOf(rg) != maker.PeerID {
+		return fmt.Errorf("two joins with create at once for %s: P got %v, Q got %v; want one room that one of them "+
+			"made and the other joined", two, obj(jp, "room"), obj(jq, "room"))
+	}
+
+	// After end the code is free: C, reading closed, makes the room again, and B joins it.
+	_ = b.send(Msg{"type": "end"})
+	for _, m := range []*Client{b, c, d} {
+		if _, err := m.waitFor(reply, "closed ended", isType("closed")); err != nil {
+			return err
+		}
+	}
+	j, err = enter(c, joinCreateMsg(typed, "C"))
+	if err != nil {
+		return fmt.Errorf("join with create of an ended room's code, sent on reading closed: %w", err)
+	}
+	if r := obj(j, "room"); str(j, "code") != code || num(r, "rev") != 1 || len(participants(r)) != 1 ||
+		hostOf(r) != c.PeerID {
+		return fmt.Errorf("join with create of an ended room's code: code %s, room %v; want a new room with C as host",
+			str(j, "code"), r)
+	}
+	j, err = enter(b, joinCreateMsg(code, "B"))
+	if err != nil {
+		return fmt.Errorf("the former host's join with create: %w", err)
+	}
+	if r := obj(j, "room"); num(r, "rev") != 2 || hostOf(r) != c.PeerID {
+		return fmt.Errorf("the former host's join with create: %v; want rev 2 with C as host", r)
+	}
+	return nil
+}
+
 // scIPJoins: every address group of a client IP (§3.1) may look up joinBurst codes at once and joinsPerSecond after
 // that, times the group's factor, across its connections: an IPv4 address and an IPv6 /64 the per-IP values, a /56
 // ipv6Factor56 times them, a /48 ipv6Factor48 times them. A join over the allowance gets rate_limited and takes no

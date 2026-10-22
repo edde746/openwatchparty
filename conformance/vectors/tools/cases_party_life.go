@@ -365,6 +365,67 @@ func partyLifeTraces() []Case {
 		add(tr)
 	}
 
+	// SDK.md §4.2, §7.2, SPEC.md §7.2: join with create sends create: true. A relay's room_not_found still forces the
+	// one refresh, and the join goes once, create kept, to the relay the code moved to. That relay's relay_full is
+	// final: unlike create, join never tries another relay.
+	{
+		tr := newTrace("join with create keeps create where room_not_found moves the code, and relay_full is final", pickSetup())
+		tr.pickRefreshed()
+		joinC := lifeWith(lifeJoinMsg(), "create", true)
+		tr.do(call("join", "id", "c1", "code", trCode, "create", true), out{
+			Net:   objs(openedOn(urlB)),
+			Send:  objs(sendOn(urlB, joinC)),
+			State: state("connection", "connecting"),
+		})
+		tr.do(nextGet(lifeList(lifeRelay("a", urlA, "23456789A"), lifeRelay("b", urlB, "BCDEFGH"),
+			lifeRelay("c", urlC, "JKMNPQRSTUVWXYZ"))), out{})
+		tr.do(recvOn(urlB, refusal("room_not_found", "no room with this code", "join")), out{
+			Net:   objs(closedOn(urlB, 1000), got(), openedOn(urlC)),
+			Send:  objs(sendOn(urlC, joinC)),
+			State: state("connection", "connecting"),
+		})
+		tr.do(recvOn(urlC, refusal("relay_full", "the relay is full", "join")), out{
+			Net:   objs(closedOn(urlC, 1000)),
+			Done:  objs(done("c1", "error", "relay_full", "re", "join", "message", "the relay is full")),
+			State: state("connection", "idle"),
+		})
+		tr.do(advance(10_000), out{})
+		add(tr)
+	}
+
+	// SDK.md §3.1, §7.2, SPEC.md §7.2: a join with create false sends no create member, and Relays.at's room_not_found
+	// stays final. With create true, Relays.at sends the join to its one relay whatever the first symbol, and the
+	// joined that answers makes the party the host of a new room.
+	{
+		tr := newTrace("join without create sends no create member; with it, Relays.at joins the room it makes as host", setup())
+		joinZ := lifeWith(lifeJoinMsg(), "code", "Z7MQ2X")
+		tr.do(call("join", "id", "c1", "code", "z7m-q2x", "create", false), out{
+			Net:   objs(opened()),
+			Send:  objs(joinZ),
+			State: state("connection", "connecting"),
+		})
+		tr.do(recv(refusal("room_not_found", "no room with this code", "join")), out{
+			Net:   objs(closed(1000)),
+			Done:  objs(done("c1", "error", "room_not_found", "re", "join", "message", "no room with this code")),
+			State: state("connection", "idle"),
+		})
+		host := ann
+		host.Host = true
+		room := newRoom(1, tr.relayNow(), host)
+		room.Code = "Z7MQ2X"
+		tr.do(call("join", "id", "c2", "code", "z7m-q2x", "create", true), out{
+			Net:   objs(opened()),
+			Send:  objs(lifeWith(joinZ, "create", true)),
+			State: state("connection", "connecting"),
+		})
+		tr.do(recv(joinedMsg("ann", room, nil, tr.relayNow())), out{
+			Done:  objs(done("c2")),
+			Send:  objs(tr.status(0, "idle", nil)),
+			State: state("connection", "connected", "peerId", "ann", "room", 1, "isHost", true, "player", "idle"),
+		})
+		add(tr)
+	}
+
 	// ---------------------------------------------------------------------------------------------------------------
 	// §7 Session lifecycle
 

@@ -196,7 +196,7 @@ The relay normalizes a received code in three steps:
 2. It converts ASCII `a`–`z` to upper case.
 3. It looks the result up exactly. A result that is not 6 alphabet symbols names no room.
 
-At creation, the relay draws the code with a CSPRNG. It draws the first symbol uniformly from its creation prefixes, which §5.2 defines, and the rest uniformly from the alphabet. The code MUST differ from the codes of every room the relay holds, including rooms restored under §14. The relay redraws on a collision.
+When `create` makes a room, the relay draws its code with a CSPRNG. It draws the first symbol uniformly from its creation prefixes, which §5.2 defines, and the rest uniformly from the alphabet. The code MUST differ from the codes of every room the relay holds, including rooms restored under §14. The relay redraws on a collision. A `join` that makes a room gives it the join's code instead, as §7.2 describes.
 
 A relay MUST answer `join` and `resume` for every room it holds, whatever the code's first symbol.
 
@@ -374,7 +374,7 @@ Every field is required unless marked `?`. Each message's section lists its fiel
 |type|fields|allowed for|
 |---|---|---|
 |`create`|`name`, `client`|a connection outside a room|
-|`join`|`code`, `name`, `client`|a connection outside a room|
+|`join`|`code`, `name`, `client`, `create`?|a connection outside a room|
 |`resume`|`code`, `peerId`, `token`|a connection outside a room, for the participant it names|
 |`ping`|`id`|any connection|
 |`status`|`epoch`, `player`, `match`, `offsetMs`, `rttMs`?|members|
@@ -413,12 +413,13 @@ If no refusal applies, the relay makes a new room with a new code (§5.1) and th
 |`code`|string|any string, matched as §5.1 says|
 |`name`|string|§6.3|
 |`client`|string|§6.3|
+|`create`?|boolean|`true` asks the relay to make a room with this code when no room has it|
 
 Refusals, in order:
 
 1. `client_blocked` when the deny list of §11.9 refuses the app.
 2. `rate_limited` when the client IP or the relay has no join allowance left, as described below.
-3. `room_not_found` when no room has this code.
+3. `room_not_found` when no room has this code, unless `create` is `true`. Then the relay makes the room, as described below.
 4. `room_full` when the room has `maxParticipants` (8) participants, disconnected ones included.
 5. `room_locked` when the room is locked.
 
@@ -430,6 +431,20 @@ The join allowance works with token buckets:
 A `join` that reaches step 2 takes one token from each bucket when every one has a token, whether or not the code exists. Otherwise it takes none and is refused.
 
 If no refusal applies, the sender becomes a new participant at the end of the join order (§11.1), and the host promotion of §11.4 runs. The relay sends `joined` to the sender and a snapshot to the other connected members.
+
+#### Making the room
+
+When no room has the code and `create` is `true`, the relay makes a room with that code, unless one of these refusals applies, in order:
+
+1. `room_not_found` when the normalized code is not 6 alphabet symbols, or its first symbol is not one of the relay's creation prefixes (§5.2).
+2. `rate_limited` when an address group of the client IP is the creator of its limit of rooms (§11.10).
+3. `relay_full` when the relay holds `maxRooms` (10000) rooms, as §11.10 describes.
+
+If no refusal applies, the relay makes the room as `create` does in §7.1, with the join's normalized code. The sender becomes the room's first participant and its host. The relay sends `joined` to the sender with the first snapshot, whose `rev` is 1.
+
+Looking up the code and making the room happen in one step. When two `join`s with `create` arrive for the same free code, one makes the room and the other joins it. A code is free from the moment §11.8 deletes its room, before any member reads the room's `closed`.
+
+A relay that predates `create` ignores the field, as §4 requires, and answers `room_not_found`.
 
 ### 7.3 `resume`
 
@@ -1005,7 +1020,7 @@ Deletion has these effects:
 
 - Every timer stops, and the relay forgets the media, the participants and the tokens.
 - The room leaves the persisted state of §14.
-- The code names no room afterwards, so it answers `room_not_found` and `resume_failed`, and it may be drawn again.
+- The code names no room afterwards, so it answers `room_not_found` and `resume_failed`. `create` may draw it again, and a `join` with `create` makes a new room with it (§7.2).
 - Connections that were members stay open, outside any room.
 
 ### 11.9 Refused clients (`client_blocked`)
@@ -1021,9 +1036,9 @@ A relay MUST apply a changed deny list without a restart. A change does not affe
 
 ### 11.10 Rooms per IP and room cap
 
-The relay remembers, in memory only, the client IP that created each room, and counts rooms per address group of that IP as §3.1 defines. While a group is the creator of `maxRoomsPerIp` (3) × its group factor rooms that the relay holds, a `create` from it gets `rate_limited`. Rooms restored under §14 count for no IP.
+The relay remembers, in memory only, the client IP that created each room, and counts rooms per address group of that IP as §3.1 defines. While a group is the creator of `maxRoomsPerIp` (3) × its group factor rooms that the relay holds, a `create` from it gets `rate_limited`, and so does a `join` that would make a room (§7.2). Rooms restored under §14 count for no IP.
 
-While the relay holds `maxRooms` (10000) rooms, restored ones included, `create` gets `relay_full`, and the client creates on another relay as §5.4 says. Restoring rooms after a restart is never refused.
+While the relay holds `maxRooms` (10000) rooms, restored ones included, `create` gets `relay_full`, and the client creates on another relay as §5.4 says. A `join` that would make a room gets `relay_full` too. Restoring rooms after a restart is never refused.
 
 ## 12. Playback state machine
 
@@ -1202,7 +1217,7 @@ Two more bounds are fixed in v1 and encoded in the schemas, but not reported in 
 |`maxParticipants`|8|participants per room, disconnected ones included, at most 20 as explained below|§11.1|
 |`maxConnections`|10000|open WebSocket connections on the relay|§3.1|
 |`maxConnectionsPerIp`|10|open WebSocket connections per address group, times its factor|§3.1|
-|`maxRooms`|10000|rooms the relay holds, beyond which `create` gets `relay_full`|§11.10|
+|`maxRooms`|10000|rooms the relay holds, beyond which `create` and a `join` that would make a room get `relay_full`|§11.10|
 |`maxRoomsPerIp`|3|rooms an address group created that the relay still holds, times its factor|§11.10|
 |`ipv6Factor56`|4|factor of an IPv6 /56 group|§3.1|
 |`ipv6Factor48`|16|factor of an IPv6 /48 group|§3.1|
@@ -1367,10 +1382,10 @@ These are the codes that the `error` message of §8.5 carries.
 |`invalid_message`|any message|malformed JSON or envelope (`re` null), a shape violation, a binary message (`re` null), `play`/`pause`/`seek`/`rate` without media, `transferHost`/`kick` naming no participant|§6.2|
 |`unsupported`|a message of unknown `type`|this relay doesn't implement the type|§4|
 |`rate_limited`|any message|the connection's message bucket is empty|§3.1|
-|`rate_limited`|`create`|the address group created its limit of rooms|§11.10|
+|`rate_limited`|`create`, `join`|the address group created its limit of rooms, for a `join` only when it would make a room|§11.10, §7.2|
 |`rate_limited`|`join`|the join allowance of the address group or of the relay is used up|§7.2|
-|`relay_full`|`create`|the relay holds `maxRooms` rooms, so the client creates on another relay|§11.10, §5.4|
-|`room_not_found`|`join`|no room with this code|§7.2|
+|`relay_full`|`create`, `join`|the relay holds `maxRooms` rooms. After `create`, the client creates on another relay.|§11.10, §5.4, §7.2|
+|`room_not_found`|`join`|no room with this code, and the relay made none: the `join` lacks `create`, or the relay doesn't make codes like this one|§7.2|
 |`room_full`|`join`|`maxParticipants` reached|§7.2|
 |`room_locked`|`join`|the room is locked|§7.2|
 |`forbidden`|controller and host-only commands|the sender lacks the role|§11.3|

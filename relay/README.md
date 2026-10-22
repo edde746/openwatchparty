@@ -135,7 +135,7 @@ It exits with one of these statuses:
 | `--max-connections` | `OWP_MAX_CONNECTIONS` | `10000` | Connections in total. Any more get 503. |
 | `--max-participants` | `OWP_MAX_PARTICIPANTS` | `8` | Participants per room, disconnected ones included. From 1 to 20. |
 | `--max-connections-per-ip` | `OWP_MAX_CONNECTIONS_PER_IP` | `10` | Connections per IPv4 address or IPv6 /64. Any more get 429. |
-| `--max-rooms` | `OWP_MAX_ROOMS` | `10000` | Rooms the relay holds. A `create` beyond it gets `relay_full`. |
+| `--max-rooms` | `OWP_MAX_ROOMS` | `10000` | Rooms the relay holds. Beyond it, a `create` or a `join` that would make a room gets `relay_full`. |
 | `--max-rooms-per-ip` | `OWP_MAX_ROOMS_PER_IP` | `3` | Rooms that one IPv4 address or IPv6 /64 created and the relay still holds. |
 | `--ipv6-factor-56` | `OWP_IPV6_FACTOR_56` | `4` | The per-IP multiplier for an IPv6 /56. |
 | `--ipv6-factor-48` | `OWP_IPV6_FACTOR_48` | `16` | The per-IP multiplier for an IPv6 /48. |

@@ -45,12 +45,17 @@ func enter(c *Client, m Msg) (Msg, error) {
 	if err := c.send(m); err != nil {
 		return nil, err
 	}
+	return entered(c, str(m, "type"))
+}
+
+// entered waits for the answer to a create, join or resume of type typ that c sent, as enter does.
+func entered(c *Client, typ string) (Msg, error) {
 	j, err := c.waitFor(reply, "joined", func(m Msg) bool { return isType("joined")(m) || isType("error")(m) })
 	if err != nil {
 		return nil, err
 	}
 	if str(j, "type") == "error" {
-		return j, fmt.Errorf("%s: %s failed: %s", c.name, str(m, "type"), brief(j))
+		return j, fmt.Errorf("%s: %s failed: %s", c.name, typ, brief(j))
 	}
 	c.setJoined(j)
 	return j, nil
@@ -64,6 +69,12 @@ func createMsg(name string) Msg {
 
 func joinMsg(code, name string) Msg {
 	return Msg{"type": "join", "code": code, "name": name, "client": clientName, "xFuture": true}
+}
+
+func joinCreateMsg(code, name string) Msg {
+	m := joinMsg(code, name)
+	m["create"] = true
+	return m
 }
 
 func resumeMsg(c *Client) Msg {
@@ -100,6 +111,17 @@ func (x *sc) join(code, name string) (*Client, Msg, error) {
 		return nil, nil, err
 	}
 	j, err := enter(c, joinMsg(code, name))
+	return c, j, err
+}
+
+// joinCreateFrom sends a join with create for code on a new connection from addr. It returns the client and the
+// answer also when the relay refused the join.
+func (x *sc) joinCreateFrom(name, addr, code string) (*Client, Msg, error) {
+	c, err := x.dialFrom(name, addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	j, err := enter(c, joinCreateMsg(code, name))
 	return c, j, err
 }
 

@@ -234,6 +234,8 @@ A relay may answer a `join` with `room_not_found`. If this call hasn't forced a 
 
 A `join` forces at most one refresh. With `Relays.at`, the one relay owns every symbol and nothing refreshes, so its `room_not_found` is final.
 
+This holds for a `join` with `create` too. A relay answers it with `room_not_found` when it doesn't make codes with the code's first symbol, as after the symbol moved to another relay.
+
 ## 5. Clock sync
 
 Each connection keeps its own estimate of relay time. This section defines how the SDK pings the relay, which answers it uses and how it picks the best sample.
@@ -309,15 +311,17 @@ All messages are valid UTF-8, as `SPEC.md` §3.1 requires. The SDK refuses unpai
 
 `create()` chooses a relay as §6 describes, sends `{type: create, name, client}` and awaits `joined`.
 
-`join(code)` runs these steps:
+`join(code, create)` runs these steps:
 
 1. It normalizes the code. An invalid code fails with `invalid_code` before the `already_in_room` check, and before any change.
 2. It routes the code by §4.
 3. It connects.
-4. It sends `{type: join, code, name, client}`.
+4. It sends `{type: join, code, name, client}`. When `create` is true, it adds `create: true`. Otherwise the message has no `create` member.
 5. It awaits `joined`, as §4.2 describes.
 
-A failed call carries the relay's error code, or one of the SDK's own. The relay's codes are an open set, such as `room_not_found`, `room_full`, `room_locked`, `rate_limited`, `client_blocked`, and `relay_full` for `create`. The SDK's own are `invalid_code`, `unreachable` and `invalid_message`, the last for a malformed `joined` as §8 defines it.
+`create` is false by default. With it, the relay makes a room with the code when no room has it, and the party is that room's host, as `SPEC.md` §7.2 says. An app that brings a group back to a code it used before, such as one from a list of recent rooms, joins with `create`. A relay that predates `create` answers `room_not_found`.
+
+A failed call carries the relay's error code, or one of the SDK's own. The relay's codes are an open set, such as `room_not_found`, `room_full`, `room_locked`, `rate_limited`, `client_blocked`, and `relay_full` for `create` and for `join` with `create`. The SDK's own are `invalid_code`, `unreachable` and `invalid_message`, the last for a malformed `joined` as §8 defines it.
 
 #### Attempts
 
@@ -1194,7 +1198,7 @@ val state: StateFlow<PartyState<T>>
 val events: SharedFlow<PartyEvent>
 
 suspend fun create(): String              // the room code
-suspend fun join(code: String)
+suspend fun join(code: String, create: Boolean = false)   // create: make the room when no room has the code
 
 fun attachPlayer(player: PlayerAdapter, ref: T)    // ref: the file the player has open (§10.2)
 fun detachPlayer(player: PlayerAdapter? = null): Job   // completes once released adapters are done (§11.2)
@@ -1427,6 +1431,7 @@ This table maps each concept of §16.1–§16.7 to each language. Longer explana
 |published collections|read-only views not backed by a list the SDK still mutates|`List.unmodifiable` and `Map.unmodifiable`|deeply `readonly` types, frozen with `Object.freeze`|value types such as `Array` and `Dictionary`, so the app's copy never changes the party's|
 |`ext`|`JsonObject?`|`Map<String, Object?>?`|`Record<string, unknown>`|`[String: JSONValue]?`|
 |`setMedia`|`setMedia(media, ref, positionMs = 0)`|`setMedia(media, ref, {positionMs = 0})`|`setMedia(media, ref, positionMs = 0)`|`setMedia(_ media: Media, ref: Ref, positionMs: Int64 = 0) throws`|
+|`join`|`join(code, create = false)`|`join(code, {create = false})`|`join(code, { create: true })`, an options object whose `create` is false when absent|`join(_ code: String, create: Bool = false) async throws`|
 |`Media` JSON|`parseMedia(json: JsonElement): Media` and `toJson()`|`Media parseMedia(Object? json)` and `toJson()`|plain objects, and `parseMedia(value: unknown): Media`|`parseMedia(_ json: JSONValue) throws -> Media` and `toJSON() -> JSONValue`. `JSONValue(parsing:)` reads JSON text.|
 |threads|a single-threaded scope, on Android a Main scope|one isolate|one event loop|`@MainActor`|
 
@@ -1529,7 +1534,7 @@ Some rules can't be a trace or a table. Each SDK also has its own tests that che
 
 Each SDK runs exactly four scenarios against a real relay on `127.0.0.1`:
 
-1. `create`, and `join` with a typed code, in lower case and with a separator.
+1. `create`, and `join` with a typed code, in lower case and with a separator. Then the host ends the room, and its `join` of that code with `create`, typed the same way, makes the room again with the party as host.
 2. `setMedia`: the other party's resolver matches, both report `ready`, the room plays and both players follow.
 3. `pause`, `seek` and `setRate` reach the other player.
 4. A dropped connection is resumed, as §14 describes.

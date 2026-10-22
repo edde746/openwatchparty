@@ -322,6 +322,13 @@ func (r *Room) join(c *conn, name, client string, now int64) *relayError {
 	return nil
 }
 
+// open starts a room that was just put in the map: it arms the age limit and
+// adds c as the first participant and host. The caller holds r.mu.
+func (r *Room) open(c *conn, name, client string) {
+	r.arm(&r.maxAge, r.scaledMs(maxRoomAgeMs), func(int64) { r.close("expired") })
+	r.publish(r.add(c, name, client, r.srv.now()))
+}
+
 // resume reattaches the participant peerID to c and returns it.
 func (r *Room) resume(c *conn, peerID, token string, now int64) (*participant, *relayError) {
 	p := r.find(peerID)

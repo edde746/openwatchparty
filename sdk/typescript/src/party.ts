@@ -272,10 +272,18 @@ export class WatchParty<T = unknown> {
     }
   }
 
-  /** Joins a room by its code, as typed or pasted (SDK.md §4). */
-  async join(code: string): Promise<void> {
+  /**
+   * Joins a room by its code, as typed or pasted (SDK.md §4, §7.2).
+   *
+   * With `create` true, the relay makes a room with the code when no room has it, and the party joins it as host.
+   * Use it to bring a group back to a code it used before, such as one from a list of recent rooms. A relay that
+   * answers `relay_full` ends the call: unlike `create()`, `join` never tries another relay.
+   */
+  async join(code: string, options?: { create?: boolean }): Promise<void> {
     this.#usable();
     const normalized = normalizeCode(code);
+    const create = options?.create === undefined ? false : options.create;
+    if (typeof create !== "boolean") throw new PartyError("invalid_message", "create must be a boolean");
     const signal = this.#begin();
     try {
       const list = this.#relays.list;
@@ -290,13 +298,13 @@ export class WatchParty<T = unknown> {
       let link: Link;
       let answer: Answer;
       try {
-        [link, answer] = await this.#joinAt(relay.url, normalized, signal);
+        [link, answer] = await this.#joinAt(relay.url, normalized, create, signal);
       } catch (e) {
         if (!(e instanceof PartyError && e.code === "room_not_found") || refreshed) throw e;
         await abortable(this.#relays.refresh(), signal);
         const moved = routeCode(normalized, this.#relays.list);
         if (moved === null || moved.url === relay.url) throw e;
-        [link, answer] = await this.#joinAt(moved.url, normalized, signal);
+        [link, answer] = await this.#joinAt(moved.url, normalized, create, signal);
       }
       this.#enter(link, answer, false);
     } catch (e) {
@@ -715,10 +723,12 @@ export class WatchParty<T = unknown> {
     return link;
   }
 
-  async #joinAt(url: string, code: string, signal: AbortSignal): Promise<[Link, Answer]> {
+  async #joinAt(url: string, code: string, create: boolean, signal: AbortSignal): Promise<[Link, Answer]> {
     const link = await this.#open(url, signal);
+    const msg: Record<string, unknown> = { type: "join", code, name: this.#name, client: this.#client };
+    if (create) msg["create"] = true;
     try {
-      return [link, await this.#hello(link, { type: "join", code, name: this.#name, client: this.#client }, signal)];
+      return [link, await this.#hello(link, msg, signal)];
     } catch (e) {
       if (!lingering.has(link)) link.close();
       throw e;

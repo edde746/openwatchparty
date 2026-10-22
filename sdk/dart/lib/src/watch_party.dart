@@ -223,14 +223,19 @@ final class WatchParty<T> {
 
   /// Joins the room with [code], as the user typed or pasted it.
   ///
-  /// Separators and case in [code] don't matter. Throws [PartyException] with one of these codes:
+  /// Separators and case in [code] don't matter. With [create], the relay makes a room with the code when no room has
+  /// it, and the party is its host (SDK.md §7.2). Use it to bring a group back to a code it used before, such as one
+  /// from a list of recent rooms. A relay that predates [create] answers `room_not_found`.
+  ///
+  /// Throws [PartyException] with one of these codes:
   ///
   /// - `invalid_code` when [code] isn't a room code.
   /// - `room_not_found`, `room_full`, `room_locked`, `rate_limited` or `client_blocked` when the room can't be joined.
+  /// - `relay_full` when [create] is true and the relay can't make another room.
   /// - `unreachable` when the relay couldn't be reached or didn't answer in time.
   /// - `already_in_room` while the party is in a room or connecting.
   /// - `cancelled` when [leave] or [close] cancels the call.
-  Future<void> join(String code) async {
+  Future<void> join(String code, {bool create = false}) async {
     _checkOpen();
     final normalized = normalizeCode(code);
     if (normalized == null) throw const PartyException(ErrorCode.invalidCode, 'not a room code');
@@ -245,13 +250,13 @@ final class WatchParty<T> {
         if (relay == null) throw const PartyException(ErrorCode.roomNotFound, 'no relay owns this code');
       }
       try {
-        await _joinAt(attempt, relay.url, normalized);
+        await _joinAt(attempt, relay.url, normalized, create);
       } on PartyException catch (error) {
         if (error.code != ErrorCode.roomNotFound || refreshed) rethrow;
         await attempt.guard(_relays.refresh());
         final moved = routeCode(normalized, _relays.list);
         if (moved == null || moved.url == relay.url) rethrow;
-        await _joinAt(attempt, moved.url, normalized);
+        await _joinAt(attempt, moved.url, normalized, create);
       }
     } on Object {
       _failAttempt(attempt);
@@ -259,11 +264,12 @@ final class WatchParty<T> {
     }
   }
 
-  Future<void> _joinAt(_Attempt attempt, String url, String code) async {
+  Future<void> _joinAt(_Attempt attempt, String url, String code, bool create) async {
     final conn = await _open(attempt, url);
     final JsonObject joined;
     try {
-      joined = await _handshake(attempt, conn, {'type': 'join', 'code': code, 'name': _name, 'client': _client});
+      joined = await _handshake(
+          attempt, conn, {'type': 'join', 'code': code, 'name': _name, 'client': _client, if (create) 'create': true});
     } on Object {
       // A cancelled attempt keeps the connection that carried `join` until its answer (SDK.md §7.2).
       if (!attempt.isCancelled) conn.close();

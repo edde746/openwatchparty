@@ -77,6 +77,17 @@ internal class IntegrationTest : RelayTest() {
         val joined = aEvents.filterIsInstance<PartyEvent.ParticipantJoined>().single()
         assertEquals("Ben", joined.participant.name)
         assertEquals("OwpKotlinTest/1.0", joined.participant.client)
+
+        // SDK.md §7.2: once the host ends the room, its join of the same typed code with create makes the room again.
+        a.end()
+        eventually("the room ended for both") {
+            a.state.value.connection == Connection.ENDED && b.state.value.connection == Connection.ENDED
+        }
+        a.join(formatCode(code).lowercase(), create = true)
+        assertEquals(Connection.CONNECTED, a.state.value.connection)
+        assertEquals(code, a.state.value.room?.code)
+        assertTrue(a.state.value.isHost)
+        assertEquals(listOf("Anna"), a.state.value.room?.participants?.map { it.name })
     }
 
     @Test

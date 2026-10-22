@@ -24,6 +24,7 @@ var scenarios = []scenario{
 	{"§7–§9 Messages and snapshots", "create", needNothing, scCreate},
 	{"§7–§9 Messages and snapshots", "join", needNothing, scJoin},
 	{"§7–§9 Messages and snapshots", "join_errors", needNothing, scJoinErrors},
+	{"§7–§9 Messages and snapshots", "join_create", needNothing, scJoinCreate},
 	{"§7–§9 Messages and snapshots", "ip_joins", needProxy, scIPJoins},
 	{"§7–§9 Messages and snapshots", "join_total", needProcess, scJoinTotal},
 	{"§7–§9 Messages and snapshots", "resume", needNothing, scResume},

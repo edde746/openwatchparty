@@ -261,8 +261,13 @@ public class WatchParty<T> internal constructor(
      *
      * [code] may be typed or pasted, so `k7m-q2x` works too. The party checks the code first, so `invalid_code` comes
      * before `already_in_room`.
+     *
+     * With [create], the relay makes a room with [code] when no room has it, and the party is that room's host (SDK.md
+     * §7.2). An app uses it to bring a group back to a code it used before, such as one from a list of recent rooms.
+     * Such a join may also fail with `relay_full`, which is final: unlike `create()`, `join` tries no other relay. A
+     * relay that predates `create` answers `room_not_found`.
      */
-    public suspend fun join(code: String) {
+    public suspend fun join(code: String, create: Boolean = false) {
         requireOpen()
         val normalized = normalizeCode(code) ?: throw PartyException(PartyException.INVALID_CODE, "not a room code")
         attempt { myGeneration ->
@@ -274,20 +279,20 @@ public class WatchParty<T> internal constructor(
                 relay = route(normalized, relays.list) ?: throw PartyException(PartyException.ROOM_NOT_FOUND)
             }
             try {
-                joinAt(relay, normalized, myGeneration)
+                joinAt(relay, normalized, create, myGeneration)
             } catch (e: PartyException) {
                 if (e.code != PartyException.ROOM_NOT_FOUND || refreshed) throw e
                 relays.refresh()
                 val moved = route(normalized, relays.list)
                 if (moved == null || moved.url == relay.url) throw e
-                joinAt(moved, normalized, myGeneration)
+                joinAt(moved, normalized, create, myGeneration)
             }
         }
     }
 
-    private suspend fun joinAt(relay: Relay, code: String, myGeneration: Int) {
+    private suspend fun joinAt(relay: Relay, code: String, create: Boolean, myGeneration: Int) {
         val link = connect(relay.url)
-        admitNew(link, Out.join(code, name, client), "join", myGeneration)
+        admitNew(link, Out.join(code, name, client, create), "join", myGeneration)
     }
 
     /**

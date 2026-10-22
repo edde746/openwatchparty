@@ -245,11 +245,19 @@ public final class WatchParty<Ref: Equatable & Sendable> {
     /// `code` may be typed or pasted, so `k7m-q2x` works too. The party checks the code first, so an invalid code fails
     /// with `invalid_code` rather than `already_in_room`.
     ///
-    /// - Throws: `PartyError` when joining fails. Throws `PartyClosedError` after `close()`, and `CancellationError`
-    ///   when the calling task is cancelled.
-    public func join(_ code: String) async throws {
+    /// With `create`, the relay makes a room with this code when no room has it, and the party becomes that room's host
+    /// (SPEC.md §7.2). Use it to bring a group back to a code it used before, such as one from a list of recent rooms. A
+    /// relay that predates `create` answers `room_not_found`.
+    ///
+    /// - Parameters:
+    ///   - code: The room code, typed or pasted.
+    ///   - create: Whether the relay makes the room when no room has the code.
+    /// - Throws: `PartyError` when joining fails, with code `relay_full` when `create` finds the relay full. Throws
+    ///   `PartyClosedError` after `close()`, and `CancellationError` when the calling task is cancelled.
+    public func join(_ code: String, create: Bool = false) async throws {
         try requireOpen()
         guard let normalized = normalizeCode(code) else { throw PartyError(.invalidCode, "not a room code") }
+        let message = Out.join(code: normalized, name: name, client: client, create: create)
         try await attempt { [self] myGeneration in
             var refreshed = false
             var found = route(normalized, relays.list)
@@ -260,18 +268,18 @@ public final class WatchParty<Ref: Equatable & Sendable> {
             }
             guard let relay = found else { throw PartyError(.roomNotFound) }
             do {
-                try await joinAt(relay, normalized, myGeneration)
+                try await joinAt(relay, message, myGeneration)
             } catch let error as PartyError where error.code == .roomNotFound && !refreshed {
                 await relays.refresh()
                 guard let moved = route(normalized, relays.list), moved.url != relay.url else { throw error }
-                try await joinAt(moved, normalized, myGeneration)
+                try await joinAt(moved, message, myGeneration)
             }
         }
     }
 
-    private func joinAt(_ relay: Relay, _ code: String, _ myGeneration: Int) async throws {
+    private func joinAt(_ relay: Relay, _ message: String, _ myGeneration: Int) async throws {
         let link = try await connect(relay.url)
-        try await admitNew(link, Out.join(code: code, name: name, client: client), "join", myGeneration)
+        try await admitNew(link, message, "join", myGeneration)
     }
 
     /// Runs a `create` or `join` as `startJob` and waits for it. `leave()` and `close()` fail the wait at once with

@@ -22,6 +22,9 @@
     },
     "client": {
       "$ref": "common.schema.json#/$defs/client"
+    },
+    "create": {
+      "type": "boolean"
     }
   }
 }

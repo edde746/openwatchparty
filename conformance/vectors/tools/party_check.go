@@ -17,7 +17,7 @@ import (
 
 // callArgs lists each call's members besides `call` and `id`: required ones first, then optional ones after "?".
 var callArgs = map[string][]string{
-	"create": {}, "join": {"code"}, "leave": {}, "end": {}, "close": {},
+	"create": {}, "join": {"code", "?", "create"}, "leave": {}, "end": {}, "close": {},
 	"setMedia": {"media", "ref", "?", "positionMs"}, "clearMedia": {}, "play": {}, "pause": {}, "seek": {"ms"},
 	"setRate": {"rate"}, "setOffset": {"ms"}, "setControl": {"mode"}, "lock": {"locked"},
 	"kick": {"peerId"}, "transferHost": {"peerId"}, "choose": {"candidate"}, "acceptMismatch": {},

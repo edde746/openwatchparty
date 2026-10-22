@@ -233,12 +233,14 @@ The constructor throws a `PartyException` with the code `invalid_message` for a 
 | `state` | Everything the UI shows, as one value. |
 | `events` | What happens in the room. |
 | `suspend fun create(): String` | Creates a room on the first relay to answer, joins it as host and returns its code. |
-| `suspend fun join(code: String)` | Joins a room by a typed or pasted code, such as `k7m-q2x`. |
+| `suspend fun join(code: String, create: Boolean = false)` | Joins a room by a typed or pasted code, such as `k7m-q2x`. With `create`, it makes the room when no room has the code. |
 | `fun leave()` | Leaves the room. |
 | `fun close(): Job` | Leaves the room and releases everything. |
 | `fun roomPositionMs(): Long?` | The room's position now. |
 
 `leave()` during `create` or `join` cancels them. After `close()`, `create` and `join` throw `IllegalStateException`.
+
+To bring a group back to a code it used before, such as one from your app's recent rooms, call `join(code, create = true)`. The call joins the room when it exists. Otherwise it makes a new room with that code, and the user is its host. A full relay answers `relay_full`, and `join` doesn't try another relay then. A relay that predates `create` answers `room_not_found`.
 
 ### Matching and the player
 

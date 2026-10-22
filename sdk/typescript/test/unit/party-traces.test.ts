@@ -429,7 +429,7 @@ class Run {
         case "create":
           return void later(party.create(), (code) => code);
         case "join":
-          return void later(party.join(s.code));
+          return void later(s.create === undefined ? party.join(s.code) : party.join(s.code, { create: s.create }));
         case "choose":
           return void later(party.choose(this.candidate(s.candidate)), (v) => v);
         case "detachPlayer":

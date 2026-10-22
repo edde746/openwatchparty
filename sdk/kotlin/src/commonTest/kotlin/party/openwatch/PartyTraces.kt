@@ -519,9 +519,12 @@ private class TraceRun(private val setup: JsonObject) {
         try {
             when (name) {
                 "create" -> return later { JsonPrimitive(party.create()) }
-                "join" -> return later {
-                    party.join(s.string("code"))
-                    null
+                "join" -> {
+                    val create = s["create"]?.let { it.asBoolean() ?: fail("create $it") }
+                    return later {
+                        if (create == null) party.join(s.string("code")) else party.join(s.string("code"), create)
+                        null
+                    }
                 }
                 "choose" -> {
                     val c = candidate(s["candidate"])

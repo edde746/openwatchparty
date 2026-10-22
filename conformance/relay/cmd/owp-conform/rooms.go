@@ -453,7 +453,9 @@ func scClientBlocked(x *sc) error {
 // scIPRooms: while an address group of a client IP (§3.1) is the creator of maxRoomsPerIp rooms the relay holds,
 // times the group's factor, create from it gets rate_limited: an IPv4 address and an IPv6 /64 the limit, a /56
 // ipv6Factor56 times it, a /48 ipv6Factor48 times it. Deleting a room frees its place; an IPv4-mapped IPv6 address is
-// its IPv4 address; a refused create counts in no group (§7.1, §11.10).
+// its IPv4 address; a refused create counts in no group (§7.1, §11.10). A join with create counts like create: from
+// an IP at its limit, it gets rate_limited for a free code, after the check of the code, and joins a held room; the
+// room it makes counts for the IP (§7.2).
 func scIPRooms(x *sc) error {
 	max := int(x.lim("maxRoomsPerIp"))
 	f56, f48 := int(x.lim("ipv6Factor56")), int(x.lim("ipv6Factor48"))
@@ -492,14 +494,45 @@ func scIPRooms(x *sc) error {
 		refused("OverMapped", mapped(addr), "create from the IPv4-mapped form of an IP at its limit")); err != nil {
 		return err
 	}
+	jc, err := x.dialFrom("J", addr)
+	if err != nil {
+		return err
+	}
+	j, err := enter(jc, joinCreateMsg(freeCode(hosts[0].Code[0]), "J"))
+	if err := refusedWithRe(j, err, "rate_limited", "join",
+		"join with create of a free code from an IP at its limit"); err != nil {
+		return err
+	}
+	if f := x.foreignCode(); f != "" {
+		j, err := enter(jc, joinCreateMsg(f, "J"))
+		if err := refusedWithRe(j, err, "room_not_found", "join",
+			"join with create of a code the relay doesn't create, from an IP at its limit"); err != nil {
+			return err
+		}
+	}
+	if _, err := enter(jc, joinCreateMsg(hosts[0].Code, "J")); err != nil {
+		return fmt.Errorf("join with create of a held room from an IP at its limit: %w", err)
+	}
 	if _, _, err := x.create("Elsewhere"); err != nil {
 		return fmt.Errorf("create from another IP: %w", err)
 	}
 	if err := end(hosts[0]); err != nil {
 		return err
 	}
-	if _, _, err := x.createFrom("Again", mapped(addr)); err != nil {
+	again, _, err := x.createFrom("Again", mapped(addr))
+	if err != nil {
 		return fmt.Errorf("create after ending one of the IP's rooms: %w", err)
+	}
+	// The ended room's code is free once its host reads closed, and the room that J makes with it counts for the IP.
+	if err := end(again); err != nil {
+		return err
+	}
+	if _, err := enter(jc, joinCreateMsg(again.Code, "J")); err != nil {
+		return fmt.Errorf("join with create of an ended room's code from an IP below its limit: %w", err)
+	}
+	if err := refused("OverAfterJoin", addr,
+		"create from an IP at its limit with a room that a join with create made"); err != nil {
+		return err
 	}
 	// IPv6: the first /64 of a /56 reaches its limit and is refused once more, which must count nowhere; the /56's
 	// next /64s then bring it to its own limit exactly.
@@ -551,9 +584,10 @@ func scIPRooms(x *sc) error {
 }
 
 // scRelayFull: a relay holding maxRooms rooms answers create with relay_full, checked after client_blocked and
-// rate_limited, and answers join as usual; a deleted room frees a place. Restored rooms count: restarted with a lower
+// rate_limited, and answers join as usual; a deleted room frees a place. A join with create for a free code gets
+// relay_full there in the same order, and one for a held room joins it. Restored rooms count: restarted with a lower
 // cap than the rooms it holds, the relay restores every one and refuses create until it holds fewer than the cap
-// (§7.1, §11.10, §14). It runs on a relay of its own with --max-rooms 3.
+// (§7.1, §7.2, §11.10, §14). It runs on a relay of its own with --max-rooms 3.
 func scRelayFull(x *sc) error {
 	p, err := x.newRelay(x.scale, "--trust-proxy", "--max-rooms", "3", "--max-rooms-per-ip", "3")
 	if err != nil {
@@ -592,6 +626,12 @@ func scRelayFull(x *sc) error {
 		"(rate_limited is checked first)"); err != nil {
 		return err
 	}
+	free := freeCode(hosts[0].Code[0])
+	_, j, err = y.joinCreateFrom("A4", a, free)
+	if err := refusedWithRe(j, err, "rate_limited", "join", "join with create of a free code from an IP at "+
+		"maxRoomsPerIp on a full relay (rate_limited is checked first)"); err != nil {
+		return err
+	}
 	b := nextAddr()
 	c, err := y.dialFrom("B", b)
 	if err != nil {
@@ -605,6 +645,19 @@ func scRelayFull(x *sc) error {
 	j, err = enter(c, createMsg("B"))
 	if err := refusedWithRe(j, err, "relay_full", "create", "create on a relay holding maxRooms rooms"); err != nil {
 		return err
+	}
+	j, err = enter(c, Msg{"type": "join", "code": free, "name": "B", "client": "Blocked/1.0", "create": true})
+	if err := refusedWithRe(j, err, "client_blocked", "join", "join with create from a denied app on a full relay "+
+		"(client_blocked is checked first)"); err != nil {
+		return err
+	}
+	j, err = enter(c, joinCreateMsg(free, "B"))
+	if err := refusedWithRe(j, err, "relay_full", "join",
+		"join with create of a free code on a relay holding maxRooms rooms"); err != nil {
+		return err
+	}
+	if _, _, err := y.joinCreateFrom("E", nextAddr(), hosts[1].Code); err != nil {
+		return fmt.Errorf("join with create of a held room on a full relay: %w", err)
 	}
 	if _, err := enter(c, joinMsg(hosts[0].Code, "B")); err != nil {
 		return fmt.Errorf("join on a full relay: %w", err)
@@ -635,6 +688,11 @@ func scRelayFull(x *sc) error {
 	d := nextAddr()
 	_, j, err = y.createFrom("D", d)
 	if err := refusedWithRe(j, err, "relay_full", "create", "create with 3 restored rooms and --max-rooms 2"); err != nil {
+		return err
+	}
+	_, j, err = y.joinCreateFrom("D", d, free)
+	if err := refusedWithRe(j, err, "relay_full", "join",
+		"join with create of a free code with 3 restored rooms and --max-rooms 2"); err != nil {
 		return err
 	}
 	if err := end(back[0]); err != nil {

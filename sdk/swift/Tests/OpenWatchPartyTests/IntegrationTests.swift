@@ -64,6 +64,14 @@ struct IntegrationTests {
             let joined = aEvents.of(ParticipantJoinedEvent.self)
             #expect(joined.map(\.participant.name) == ["Ben"])
             #expect(joined.first?.participant.client == "OwpSwiftTest/1.0")
+
+            // The host ends the room, then brings the group back to its code, typed the same way.
+            try a.end()
+            try await h.eventually("the room ended") { a.state.connection == .ended }
+            try await a.join(try formatCode(code).lowercased(), create: true)
+            #expect(a.state.room?.code == code)
+            #expect(a.state.isHost)
+            #expect(a.state.room?.participants.map(\.name) == ["Anna"])
         }
     }
 

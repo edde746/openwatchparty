@@ -211,6 +211,11 @@ func (c *client) join(code, name string) {
 	c.expect("joined")
 }
 
+// joinCreate is a join with create true.
+func joinCreate(code, name string) msg {
+	return msg{"type": "join", "code": code, "name": name, "client": "Test/1.0", "create": true}
+}
+
 func (c *client) status(epoch int, player string) {
 	c.t.Helper()
 	c.send(msg{"type": "status", "epoch": epoch, "player": player, "match": nil, "offsetMs": 0})

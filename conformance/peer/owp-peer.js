@@ -27,6 +27,7 @@ options:
   --file MS|none      the file this peer finds for shared media: its duration, or none (default: the media's duration)
   --timeout S         how long wait, accept, decline and end may take (default: 30)
   --json              print events as JSON lines
+  --create            with join: make the room, with this peer as host, when no room has the code
 
 steps:
   media JSON|@FILE [MS]   host: share a descriptor, starting at MS; plays a simulated file of its duration
@@ -69,7 +70,7 @@ const PEER_KEYS = {
 const isCount = (s) => /^\d+$/.test(s);
 
 function parseArgs(argv) {
-  const opts = { relay: "public", name: "Peer", client: `owp-peer/${version}`, file: undefined, timeoutMs: 30_000, json: false };
+  const opts = { relay: "public", name: "Peer", client: `owp-peer/${version}`, file: undefined, timeoutMs: 30_000, json: false, create: false };
   let i = 0;
   const value = (flag, inline) => {
     if (inline !== undefined) return inline;
@@ -90,6 +91,7 @@ function parseArgs(argv) {
         break;
       }
       case "--json": opts.json = true; break;
+      case "--create": opts.create = true; break;
       case "--help": throw new UsageError("");
       default: throw new UsageError(`unknown option ${flag}`);
     }
@@ -101,6 +103,8 @@ function parseArgs(argv) {
     if (code === undefined) throw new UsageError("join needs a room code");
   } else if (command !== "create") {
     throw new UsageError(command === undefined ? "missing create or join" : `unknown command ${command}`);
+  } else if (opts.create) {
+    throw new UsageError("--create goes with join");
   }
   const steps = [];
   while (i < argv.length) {
@@ -675,7 +679,7 @@ try {
     const roomCode = await party.create();
     release({ type: "created", code: roomCode, peerId: party.state.peerId });
   } else {
-    await party.join(code);
+    await party.join(code, { create: opts.create });
     release({ type: "joined", code: party.state.room.code, peerId: party.state.peerId });
   }
 } catch (e) {

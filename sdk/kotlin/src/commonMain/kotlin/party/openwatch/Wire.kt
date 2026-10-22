@@ -20,10 +20,11 @@ internal object Out {
         put("client", client)
     }
 
-    fun join(code: String, name: String, client: String) = message("join") {
+    fun join(code: String, name: String, client: String, create: Boolean) = message("join") {
         put("code", code)
         put("name", name)
         put("client", client)
+        if (create) put("create", true)
     }
 
     fun resume(code: String, peerId: String, token: String) = message("resume") {

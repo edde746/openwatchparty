@@ -266,8 +266,9 @@ private final class TraceRun {
                 return later { .string(try await party.create()) }
             case "join":
                 let code = s["code"]?.string ?? ""
+                let create = s["create"]?.bool ?? false
                 return later {
-                    try await party.join(code)
+                    try await party.join(code, create: create)
                     return nil
                 }
             case "choose":

@@ -150,6 +150,13 @@ test("after close(), create and join reject with a plain Error, not a PartyError
   assert.equal(sockets.length, 0);
 });
 
+test("join refuses a create that isn't a boolean before it connects", async () => {
+  const { party, sockets } = setup();
+  await assert.rejects(party.join("K7MQ2X", { create: "yes" as unknown as boolean }), { code: "invalid_message" });
+  assert.equal(sockets.length, 0);
+  assert.equal(party.state.connection, "idle");
+});
+
 test("setControl throws not_in_room while reconnecting", async () => {
   const { party, sockets } = await joinedParty();
   sockets[0]!.drop();

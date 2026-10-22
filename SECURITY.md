@@ -44,6 +44,7 @@ Behaviour that is by design is also out of scope:
 - Anyone with a code can join a room until the host locks it.
 - The relay reads descriptors and positions. OWP v1 has no end-to-end encryption.
 - Codes can in principle be guessed. Join limits slow guessing down.
+- A code carries no ownership. Once its room is deleted, anyone who joins the code with `create` gets a new room with it, as its host.
 
 ## Testing rules
 

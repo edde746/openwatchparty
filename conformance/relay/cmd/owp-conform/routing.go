@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"sort"
 	"strings"
 	"time"
@@ -182,4 +183,26 @@ func (x *sc) creationPrefixes() string {
 		return ownPrefixes
 	}
 	return alphabet
+}
+
+// freeCode is a random code that starts with first. On a relay holding n rooms, it names one of them with odds of at
+// most n in 31^5.
+func freeCode(first byte) string {
+	b := []byte{first, 0, 0, 0, 0, 0}
+	for i := 1; i < len(b); i++ {
+		b[i] = alphabet[rand.IntN(len(alphabet))]
+	}
+	return string(b)
+}
+
+// foreignCode is a random code whose first symbol is not one of the relay's creation prefixes, or "" when the suite
+// doesn't know of such a symbol.
+func (x *sc) foreignCode() string {
+	own := x.creationPrefixes()
+	for i := range len(alphabet) {
+		if !strings.ContainsRune(own, rune(alphabet[i])) {
+			return freeCode(alphabet[i])
+		}
+	}
+	return ""
 }

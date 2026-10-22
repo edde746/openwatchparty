@@ -281,11 +281,12 @@ func (c *conn) dispatch(typ string, f fields) *relayError {
 func (c *conn) enter(typ string, f fields) *relayError {
 	a := &args{f: f}
 	var code, name, client, peerID, token string
+	var create bool
 	if typ == "resume" {
 		code, peerID, token = a.str("code"), a.str("peerId"), a.str("token")
 	} else {
 		if typ == "join" {
-			code = a.str("code")
+			code, create = a.str("code"), a.optBoolean("create")
 		}
 		name, client = a.text("name", maxNameRunes), a.client()
 	}
@@ -313,14 +314,12 @@ func (c *conn) enter(typ string, f fields) *relayError {
 		if !s.limits.lookup(c.ip, time.Now()) {
 			return &relayError{errRateLimited, "too many joins from this address"}
 		}
-		r := s.lookup(code)
-		if r == nil {
-			return &relayError{errRoomNotFound, "no room has that code"}
-		}
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		if err := r.join(c, name, client, s.now()); err != nil {
+		made, err := s.join(c, code, name, client, create)
+		if err != nil {
 			return err
+		}
+		if made {
+			s.metrics.created.Add(1)
 		}
 		s.metrics.joins.Add(1)
 	case "resume":

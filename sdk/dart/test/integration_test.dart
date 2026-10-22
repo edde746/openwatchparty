@@ -23,7 +23,7 @@ import 'support/test_relay.dart';
 const media = Media(kind: MediaKind.movie, title: 'Heat', year: 1995, ids: {'imdb': 'tt0113277'}, durationMs: 600000);
 
 void main() {
-  test('create, and join with a typed code', () async {
+  test('create, join with a typed code, and join with create after the end', () async {
     final relays = Relays.at((await startRelay()).baseUrl);
     final a = newParty(relays, 'Anna');
     final b = newParty(relays, 'Ben');
@@ -38,6 +38,13 @@ void main() {
     expect([for (final p in b.state.room!.participants) p.name], ['Anna', 'Ben']);
     await until(() => eventsA.whereType<ParticipantJoinedEvent>().any((e) => e.participant.name == 'Ben'),
         'Anna told that Ben joined');
+
+    // Anna ends the room, then brings the group back to its code: her join with create makes the room again.
+    a.end();
+    await until(() => a.state.connection == Connection.ended, 'Anna saw the room end');
+    await a.join(formatCode(code).toLowerCase(), create: true);
+    expect((a.state.connection, a.state.isHost, a.state.room!.code), (Connection.connected, true, code));
+    expect([for (final p in a.state.room!.participants) p.name], ['Anna']);
   });
 
   test('setMedia: the other party matches, both report ready, the room plays and both players follow', () async {

@@ -140,7 +140,8 @@ class WireTest {
         assertNull(checkMedia(media))
         val messages = listOf(
             Out.create("Ben", "Test/1.0"),
-            Out.join("K7MQ2X", "Ben", "Test/1.0"),
+            Out.join("K7MQ2X", "Ben", "Test/1.0", create = false),
+            Out.join("K7MQ2X", "Ben", "Test/1.0", create = true),
             Out.resume("K7MQ2X", "p1", "secret"),
             Out.ping(1),
             Out.status(StatusFields(1, PlayerState.READY, Match(MatchState.MATCHED, 0), 0, 20)),

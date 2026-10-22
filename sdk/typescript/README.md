@@ -155,12 +155,14 @@ A custom `connect` must return a socket that behaves like a browser `WebSocket`.
 | `on("state", listener)` | Calls `listener` with every new state, and returns a function that unsubscribes. |
 | `on("event", listener)` | Calls `listener` with every event, and returns a function that unsubscribes. |
 | `create(): Promise<string>` | Creates a room, joins it as host and resolves with the room code. |
-| `join(code: string): Promise<void>` | Joins a room by its code, as the user typed or pasted it. |
+| `join(code: string, options?: { create?: boolean }): Promise<void>` | Joins a room by its code, as the user typed or pasted it. With `{ create: true }`, it makes the room when no room has the code. |
 | `leave(): void` | Leaves the room. |
 | `close(): Promise<void>` | Leaves the room and releases everything. |
 | `roomPositionMs(): number \| null` | The room's position now. |
 
 `leave()` during `create` or `join` cancels the attempt. An ended party may `create` or `join` again, but after `close()` the party can't be used again.
+
+`join(code, { create: true })` brings a group back to a code it used before, such as one from your app's list of recent rooms. When the room exists, the party joins it. When no room has the code, the relay makes one with that code, and the party is its host. A relay that is full rejects the call with `relay_full`, and the SDK doesn't try another relay. A relay that predates `create` rejects it with `room_not_found`.
 
 ### Matching and the player
 

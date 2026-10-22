@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -368,6 +369,165 @@ func TestJoinRefusals(t *testing.T) {
 	member.expectError(errForbidden)
 	host.send(msg{"type": "play"})
 	host.expectError(errInvalidMessage) // idle
+}
+
+// TestJoinCreate: a join with create makes the room that a free code names,
+// with the code as normalized and the sender as its host at rev 1. On a code
+// that names a room, it joins as a join without create does. Without create,
+// or with create false, a free code gets room_not_found, and create must be a
+// boolean. A creating join counts as a room created and as a join (SPEC.md
+// §7.2).
+func TestJoinCreate(t *testing.T) {
+	tr := startRelay(t, testConfig())
+	a, b, c := tr.dial(), tr.dial(), tr.dial()
+	a.send(msg{"type": "join", "code": "K7MQ2X", "name": "A", "client": "Test/1.0"})
+	a.expectRefusal(errRoomNotFound, "join")
+	a.send(msg{"type": "join", "code": "K7MQ2X", "name": "A", "client": "Test/1.0", "create": false})
+	a.expectRefusal(errRoomNotFound, "join")
+	for _, v := range []string{`"true"`, `1`, `null`, `{}`} {
+		a.sendRaw(`{"type":"join","code":"K7MQ2X","name":"A","client":"Test/1.0","create":` + v + `}`)
+		a.expectRefusal(errInvalidMessage, "join")
+	}
+
+	a.send(joinCreate("k7m-q2x", "A"))
+	a.expect("joined")
+	r := a.last
+	if a.code != "K7MQ2X" || r["code"] != "K7MQ2X" || num(r, "rev") != 1 || r["phase"] != "idle" ||
+		num(r, "epoch") != 0 || r["control"] != "host" || r["locked"] != false ||
+		len(r["participants"].([]any)) != 1 || hostOf(r) != a.peerID {
+		t.Fatalf("room made by a join with create: code %q, %v", a.code, r)
+	}
+	b.send(joinCreate("K7MQ2X", "B"))
+	b.expect("joined")
+	if num(b.last, "rev") != 2 || len(b.last["participants"].([]any)) != 2 || hostOf(b.last) != a.peerID {
+		t.Fatalf("join with create of a held room: %v", b.last)
+	}
+	if r := a.expect("room"); num(r, "rev") != 2 || hostOf(r) != a.peerID {
+		t.Fatalf("host after the join: %v", r)
+	}
+	c.join("K7MQ2X", "C")
+
+	for i, x := range []*client{a, b, c} { // each answer comes after its join is counted
+		x.send(msg{"type": "ping", "id": i})
+		x.expect("pong")
+	}
+	var metrics strings.Builder
+	tr.srv.writeMetrics(&metrics, "test")
+	for _, want := range []string{"owp_rooms_created_total 1\n", "owp_joins_total 3\n"} {
+		if !strings.Contains(metrics.String(), want) {
+			t.Errorf("metrics lack %q", want)
+		}
+	}
+}
+
+// TestJoinCreateRefusals: a join with create for a free code gets
+// room_not_found when the code isn't one the relay creates, then
+// rate_limited when the sender's address created its limit of rooms, then
+// relay_full at maxRooms, and a refused one keeps no room slot. Every one of
+// these joins takes a join token, as does one that makes or joins a room
+// (SPEC.md §7.2, §11.10).
+func TestJoinCreateRefusals(t *testing.T) {
+	cfg := testConfig()
+	cfg.TrustProxy, cfg.Prefixes = true, "2345"
+	cfg.Limits.MaxRooms, cfg.Limits.MaxRoomsPerIP = 2, 1
+	cfg.Limits.JoinBurstTotal, cfg.Limits.JoinsPerSecondTotal = 9, 0.001 // the relay's bucket counts every join here
+	tr := startRelay(t, cfg)
+	from := func(addr string) *client {
+		t.Helper()
+		c, resp, err := tr.dialWith(http.Header{"X-Forwarded-For": {addr}})
+		if err != nil {
+			t.Fatalf("dial: %v (%v)", err, resp)
+		}
+		return c
+	}
+	refused := func(c *client, code, want string) {
+		t.Helper()
+		c.send(joinCreate(code, "R"))
+		c.expectRefusal(want, "join")
+	}
+	a, again, c := from("10.1.1.1"), from("10.1.1.1"), tr.dial()
+	a.send(joinCreate("2AAAAA", "A")) // token 1
+	a.expect("joined")
+	refused(c, "K7MQ2X", errRoomNotFound)     // 2: K is not a creation prefix
+	refused(c, "2AAAA", errRoomNotFound)      // 3: not a code
+	refused(again, "K7MQ2Y", errRoomNotFound) // 4: the code is checked before the room limit
+	refused(again, "2BBBBB", errRateLimited)  // 5: 10.1.1.1 made its 1 room with a join
+	tr.dial().create("D", "Test/1.0")         // the relay holds 2 rooms
+	refused(again, "2CCCCC", errRateLimited)  // 6: the room limit is checked before maxRooms
+	refused(c, "2CCCCC", errRelayFull)        // 7
+	refused(c, "2CCCCC", errRelayFull)        // 8: not rate_limited, so 7 kept no slot
+	c.send(joinCreate("2aa-aaa", "C"))        // 9: a held room takes no slot
+	c.expect("joined")
+	if c.code != "2AAAAA" || hostOf(c.last) != a.peerID {
+		t.Fatalf("join with create of a held room on a full relay: %v", c.last)
+	}
+	late := tr.dial()
+	late.send(msg{"type": "join", "code": "2AAAAA", "name": "L", "client": "Test/1.0"})
+	late.expectRefusal(errRateLimited, "join") // the relay's 9 join tokens are gone
+}
+
+// TestJoinCreateAfterEnd: once the host ends the room, a former member that
+// read closed gets the code back with a join with create, as the host of a
+// new room, even from the address whose 1 room slot the ended room held. The
+// former host's join with create then joins that room (SPEC.md §7.2, §11.8).
+func TestJoinCreateAfterEnd(t *testing.T) {
+	cfg := testConfig()
+	cfg.Limits.MaxRoomsPerIP = 1
+	tr := startRelay(t, cfg)
+	host, member := tr.dial(), tr.dial() // both from 127.0.0.1
+	host.create("Host", "Test/1.0")
+	member.join(host.code, "Member")
+	code := host.code
+	host.send(msg{"type": "end"})
+	for _, c := range []*client{host, member} {
+		c.expect("closed")
+	}
+	member.send(joinCreate(strings.ToLower(code[:3]+"-"+code[3:]), "Member"))
+	member.expect("joined")
+	if r := member.last; member.code != code || num(r, "rev") != 1 || len(r["participants"].([]any)) != 1 ||
+		hostOf(r) != member.peerID {
+		t.Fatalf("join with create of an ended room's code: code %q, %v", member.code, r)
+	}
+	host.send(joinCreate(code, "Host"))
+	host.expect("joined")
+	if num(host.last, "rev") != 2 || hostOf(host.last) != member.peerID {
+		t.Fatalf("former host's join with create: %v", host.last)
+	}
+}
+
+// TestJoinCreateRace: of two joins with create sent at once for a free code,
+// one makes the room and the other joins it. One that races the end of the
+// room its code names joins that room or makes a new one, and never gets
+// room_not_found (SPEC.md §7.2).
+func TestJoinCreateRace(t *testing.T) {
+	cfg := testConfig()
+	cfg.TrustProxy = true // each dial its own address, under the per-IP limits
+	tr := startRelay(t, cfg)
+	for range 20 {
+		code := newRoomCode(codeAlphabet)
+		a, b := tr.dial(), tr.dial()
+		a.send(joinCreate(code, "A"))
+		b.send(joinCreate(code, "B"))
+		a.expect("joined")
+		b.expect("joined")
+		maker, guest := a, b
+		if num(b.last, "rev") == 1 {
+			maker, guest = b, a
+		}
+		if maker.code != code || guest.code != code || num(maker.last, "rev") != 1 ||
+			hostOf(maker.last) != maker.peerID || num(guest.last, "rev") != 2 || hostOf(guest.last) != maker.peerID {
+			t.Fatalf("two joins with create of %s: %v and %v", code, a.last, b.last)
+		}
+
+		host, c := tr.dial(), tr.dial()
+		host.create("H", "Test/1.0")
+		host.send(msg{"type": "end"})
+		c.send(joinCreate(host.code, "C"))
+		c.expect("joined")
+		if num(c.last, "rev") != 1 { // it joined the room before the end
+			c.expect("closed")
+		}
+	}
 }
 
 func TestDenyList(t *testing.T) {

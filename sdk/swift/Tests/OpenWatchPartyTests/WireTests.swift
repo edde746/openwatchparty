@@ -31,7 +31,7 @@ struct WireTests {
         var media = movie
         media.ext = ["com.example": ["a": 1, "b": [true, nil, "x"]]]
         for text in [
-            Out.create(name: "Ben", client: "Test/1.0"), Out.join(code: "K7MQ2X", name: "Ben", client: "Test/1.0"),
+            Out.create(name: "Ben", client: "Test/1.0"), Out.join(code: "K7MQ2X", name: "Ben", client: "Test/1.0", create: true),
             Out.setMedia(media, positionMs: 0), Out.pause(positionMs: nil), Out.pause(positionMs: 5),
             Out.status(StatusFields(epoch: 1, player: .idle, match: nil, offsetMs: 0, rttMs: nil)),
         ] {

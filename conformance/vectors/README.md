@@ -240,7 +240,7 @@ A call step is `{"call": api, "id"?, …args}`. These are the calls, with their 
 
 | Area | Calls |
 |---|---|
-| Room | `create`, `join{code}`, `leave`, `end`, `close` |
+| Room | `create`, `join{code,create?}`, `leave`, `end`, `close` |
 | Media | `setMedia{media,ref,positionMs?}`, `clearMedia` |
 | Playback | `play`, `pause`, `seek{ms}`, `setRate{rate}`, `setOffset{ms}` |
 | Host | `setControl{mode}`, `lock{locked}`, `kick{peerId}`, `transferHost{peerId}` |

@@ -83,12 +83,13 @@ describe("against a relay", () => {
   });
   after(() => relay.stop());
 
-  test("create, and join with a typed code: the creator is host, the guest joins", async () => {
+  test("create, join with a typed code, and after end, join with create makes the room again as host", async () => {
     const host = member(relays, "Host");
     const code = await host.party.create();
     assert.match(code, /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);
+    const typed = ` ${code.slice(0, 3)} ${code.slice(3)} `.toLowerCase();
     const guest = member(relays, "Guest");
-    await guest.party.join(` ${code.slice(0, 3).toLowerCase()} ${code.slice(3)} `);
+    await guest.party.join(typed);
     const s = await stateWhere(host.party, "two participants", (st) => st.room!.participants.length === 2);
     assert.equal(s.isHost, true);
     assert.equal(guest.party.state.isHost, false);
@@ -96,6 +97,14 @@ describe("against a relay", () => {
     assert.equal(guest.party.state.room!.code, code);
     assert.ok(host.events.some((e) => e.type === "participantJoined" && e.participant.name === "Guest"));
     assert.throws(() => guest.party.setControl("everyone"), { code: "forbidden" });
+
+    host.party.end();
+    await stateWhere(host.party, "ended", (st) => st.connection === "ended");
+    await host.party.join(typed, { create: true });
+    const again = host.party.state;
+    assert.equal(again.isHost, true);
+    assert.equal(again.room!.code, code);
+    assert.deepEqual(again.room!.participants.map((p) => p.name), ["Host"]);
     closeAll(host, guest);
   });
 

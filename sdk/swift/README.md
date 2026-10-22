@@ -142,10 +142,12 @@ The initializer throws a `PartyError` with the code `invalid_message` for a bad 
 | `states() -> AsyncStream<PartyState<Ref>>` | A new stream of every state from now on. |
 | `events() -> AsyncStream<any PartyEvent>` | A new stream of every event from now on. |
 | `create() async throws -> String` | Creates a room, joins it as host and returns its code. |
-| `join(_:) async throws` | Joins a room by a typed or pasted code, such as `k7m-q2x`. |
+| `join(_:create:) async throws` | Joins a room by a typed or pasted code, such as `k7m-q2x`. With `create`, makes the room when no room has the code. |
 | `leave()` | Leaves the room. |
 | `close() -> Task<Void, Never>` | Leaves the room and releases everything. |
 | `roomPositionMs() -> Int64?` | The room's position now. |
+
+To bring a group back to a code it used before, such as one from your app's recent rooms, call `join(code, create: true)`. The call joins the room when it exists. Otherwise it makes a new room with that code, and you are its host. A relay that predates `create` answers `room_not_found`, and a full relay answers `relay_full`.
 
 ### Matching and the player
 

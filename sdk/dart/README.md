@@ -226,12 +226,14 @@ A bad `client` or `name` throws a `PartyException` with the code `invalid_messag
 | `Stream<PartyState<T>> get states` | Every new state, once per change. |
 | `Stream<PartyEvent> get events` | What happens in the party. |
 | `Future<String> create()` | Creates a room, joins it as host and completes with the room code. |
-| `Future<void> join(String code)` | Joins a room by its code, as the user typed or pasted it. |
+| `Future<void> join(String code, {bool create = false})` | Joins a room by its code, as the user typed or pasted it. With `create`, it makes the room when no room has the code. |
 | `leave()` | Leaves the room. |
 | `Future<void> close()` | Leaves the room and releases everything. |
 | `int? roomPositionMs()` | The room's position now. |
 
 `leave()` and `close()` cancel a `create` or `join` that is under way. An ended party may start again with `create` or `join`, but a closed one can't.
+
+To bring a group back to a code it used before, such as one from your app's recent rooms, call `join(code, create: true)`. The call joins the room when it exists. Otherwise it makes a new room with that code, and the party is its host. A relay that predates `create` answers `room_not_found`, and a full relay answers `relay_full`.
 
 ### Matching and the player
 

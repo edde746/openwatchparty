@@ -122,6 +122,24 @@ The SDK spec has the details on the [relay list](../spec/SDK.md#3-relay-list) an
 
 The relay applies the same normalization to the `join` and `resume` codes it receives, as [room codes](../spec/SPEC.md#51-room-codes) describes. This matters only to apps that speak the wire protocol directly.
 
+### Coming back to a code
+
+A room ends when its last participant leaves, when the host ends it, or when it reaches its maximum age. Its code then names no room, and `join` fails with `room_not_found`. To bring a group back to a code it used before, such as one from your app's recent rooms, join with `create`. The call joins the room when it exists. Otherwise it makes a new room with that code, and the user is its host.
+
+```ts
+await party.join(code, { create: true });
+```
+
+In Kotlin the call is `party.join(code, create = true)`, in Dart `party.join(code, create: true)` and in Swift `try await party.join(code, create: true)`.
+
+Keep these points in mind:
+
+- Whoever arrives first makes the room and is its host. The host can hand the room over with `transferHost`.
+- A code carries no ownership. While no room has it, anyone who knows it can make a room with it.
+- A relay that predates `create` answers `room_not_found`. Offer to create a new room then.
+
+The rules are in [create and join](../spec/SDK.md#72-create-and-join) and [the relay's `join`](../spec/SPEC.md#72-join).
+
 ## 2. Write the player adapter
 
 The player adapter is how the SDK reads your player's state and sends it commands.
@@ -1396,7 +1414,7 @@ Plan your own wording for these codes, and use a generic text for the rest:
 | Call | Codes to word |
 |---|---|
 | `create` | `relay_full`, `unreachable` |
-| `join` | `room_not_found`, `room_full`, `room_locked`, `invalid_code` |
+| `join` | `room_not_found`, `room_full`, `room_locked`, `invalid_code`, and with `create` also `relay_full` |
 
 The relay's codes are listed in [the protocol's error codes](../spec/SPEC.md#appendix-a-error-codes). The SDK adds three of its own: `invalid_code`, `unreachable` and `cancelled`.
 

@@ -2,7 +2,7 @@
 
 `owp-conform` checks a relay against [SPEC.md](../../spec/SPEC.md) with `run`, and measures one under load with `load`. Run it after you change the relay, or against a relay you wrote yourself.
 
-The suite has 68 scenarios in 9 groups. Each group is named by the SPEC.md section it checks, from `§3 Endpoints and transport` to `§15 Privacy`.
+The suite has 69 scenarios in 9 groups. Each group is named by the SPEC.md section it checks, from `§3 Endpoints and transport` to `§15 Privacy`.
 
 The tool is its own Go module in this directory. To build it and list the scenarios:
 

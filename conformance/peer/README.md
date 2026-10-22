@@ -57,8 +57,9 @@ usage: owp-peer [options] create [steps…]
 | `--file MS\|none` | the media's duration | The file this peer finds for shared media: its duration, or none. |
 | `--timeout S` | `30` | How many seconds `wait`, `accept`, `decline` and `end` may take. |
 | `--json` | off | Prints events as JSON lines. |
+| `--create` | off | With `join`: when no room has the code, makes the room with this peer as its host. |
 
-`join` accepts any code form the SDK normalizes, such as lower case or `ct6-3qx`.
+`join` accepts any code form the SDK normalizes, such as lower case or `ct6-3qx`. With `--create`, it prints `joined` whether it joined the room or made it. A `host=` condition with the peer's name tells the two apart.
 
 ### How a script runs
 
