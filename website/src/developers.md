@@ -19,7 +19,7 @@ All four SDKs implement the same API in each language's idioms.
 | [TypeScript](../../sdk/typescript/README.md) | npm `openwatchparty` | Browsers and Node 22 or later |
 | [Dart](../../sdk/dart/README.md) | pub.dev `openwatchparty` | Dart 3.4 or later, Flutter |
 | [Kotlin Multiplatform](../../sdk/kotlin/README.md) | Maven `party.openwatch:openwatchparty` | Android, JVM, iOS, macOS, tvOS |
-| [Swift](../../sdk/swift/README.md) | SwiftPM `https://github.com/edde746/openwatchparty`, from `1.0.0` | iOS 16, macOS 13, tvOS 16, watchOS 9, visionOS 1, Linux |
+| [Swift](../../sdk/swift/README.md) | SwiftPM `https://github.com/edde746/openwatchparty`, from `1.1.0` | iOS 16, macOS 13, tvOS 16, watchOS 9, visionOS 1, Linux |
 
 A worked example is in [`examples/web/`](../../examples/web/), an HTML video page on the TypeScript SDK.
 

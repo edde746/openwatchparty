@@ -2,7 +2,7 @@ name: openwatchparty
 description: >-
   Open Watch Party client SDK for Dart and Flutter. Join a watch party room by its code and keep your own player in
   sync with everyone else in it.
-version: 1.0.0
+version: 1.1.0
 homepage: https://openwatch.party
 repository: https://github.com/edde746/openwatchparty/tree/main/sdk/dart
 issue_tracker: https://github.com/edde746/openwatchparty/issues

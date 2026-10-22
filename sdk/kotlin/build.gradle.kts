@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "party.openwatch"
-version = "1.0.0"
+version = "1.1.0"
 
 // The Android target needs an Android SDK. It is on when `-Popenwatchparty.android=true`, off when `=false`, and
 // otherwise on exactly when an SDK location is known (local.properties `sdk.dir`, ANDROID_HOME or ANDROID_SDK_ROOT).

@@ -8,7 +8,7 @@ In a JVM or Android module, add the SDK and a Ktor engine from `mavenCentral()`:
 
 ```kotlin
 dependencies {
-    implementation("party.openwatch:openwatchparty:1.0.0")
+    implementation("party.openwatch:openwatchparty:1.1.0")
     implementation("io.ktor:ktor-client-okhttp:3.6.0")
 }
 ```
@@ -18,7 +18,7 @@ In a Kotlin Multiplatform module, depend on the SDK from `commonMain`, and add a
 ```kotlin
 kotlin {
     sourceSets {
-        commonMain.dependencies { implementation("party.openwatch:openwatchparty:1.0.0") }
+        commonMain.dependencies { implementation("party.openwatch:openwatchparty:1.1.0") }
         jvmMain.dependencies { implementation("io.ktor:ktor-client-okhttp:3.6.0") }
         appleMain.dependencies { implementation("io.ktor:ktor-client-darwin:3.6.0") }
     }

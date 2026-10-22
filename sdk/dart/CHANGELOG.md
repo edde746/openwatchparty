@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - `join(code, create: true)` makes the room when no room has the code, and the party is its host. Apps use it to bring a group back to a code they used before.
 

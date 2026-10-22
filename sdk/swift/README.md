@@ -7,7 +7,7 @@ The SDK implements the client behaviour in [`spec/SDK.md`](../../spec/SDK.md). T
 With SwiftPM, add the package and the product to `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/edde746/openwatchparty", from: "1.0.0"),
+.package(url: "https://github.com/edde746/openwatchparty", from: "1.1.0"),
 // target dependency:
 .product(name: "OpenWatchParty", package: "openwatchparty"),
 ```
