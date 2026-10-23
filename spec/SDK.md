@@ -1519,7 +1519,7 @@ Every SDK runs every table in `conformance/vectors/` in its own suite and passes
 Some rules can't be a trace or a table. Each SDK also has its own tests that check these:
 
 - Its embedded relay list equals the repository's `relays.json`.
-- It accepts a relay message of 16384 bytes and more, as `SPEC.md` §3.1 requires.
+- It accepts a relay message of 32768 bytes and more, as `SPEC.md` §3.1 requires.
 - It writes every outgoing int without a fraction or exponent, also when the value came from arithmetic (§2).
 - It refuses an integer API input or a computed wire value outside its bounds before any local effect (§2, §12, §13).
 - A timer longer than 2147483647 ms doesn't run its action early, and doesn't re-arm in a tight loop (§2).
@@ -1541,7 +1541,7 @@ Each SDK runs exactly four scenarios against a real relay on `127.0.0.1`:
 
 TypeScript also restarts the relay with `--state-dir`, and both parties resume into the saved room.
 
-A test of an SDK's own transport against a local fake server is not a scenario. Such tests cover things like 16384-byte messages, close codes or HTTP limits.
+A test of an SDK's own transport against a local fake server is not a scenario. Such tests cover things like 32768-byte messages, close codes or HTTP limits.
 
 ### The Swift suites
 

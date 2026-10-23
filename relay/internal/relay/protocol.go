@@ -48,8 +48,8 @@ const (
 )
 
 // participantsBound is the largest MaxParticipants (SPEC.md §13.2): a bigger
-// room could send snapshots over the 16384 bytes clients accept.
-const participantsBound = 20
+// room could send snapshots over the 32768 bytes clients accept.
+const participantsBound = 32
 
 // Limits are the policy limits of SPEC.md §13.2, each a relay setting.
 type Limits struct {
@@ -69,7 +69,7 @@ type Limits struct {
 }
 
 // DefaultLimits are the public relays' values.
-var DefaultLimits = Limits{MaxParticipants: 8, MaxConnections: 10000, MaxConnectionsPerIP: 10, MaxRooms: 10000,
+var DefaultLimits = Limits{MaxParticipants: 32, MaxConnections: 10000, MaxConnectionsPerIP: 10, MaxRooms: 10000,
 	MaxRoomsPerIP: 3, IPv6Factor56: 4, IPv6Factor48: 16, MessageBurst: 30, MessagesPerSecond: 10, JoinBurst: 20,
 	JoinsPerSecond: 1, JoinBurstTotal: 2000, JoinsPerSecondTotal: 200}
 

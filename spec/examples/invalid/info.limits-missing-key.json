@@ -2,7 +2,7 @@
   "protocol": 1,
   "id": "b",
   "limits": {
-    "maxParticipants": 8,
+    "maxParticipants": 32,
     "maxMessageBytes": 8192,
     "maxMediaBytes": 4096,
     "maxExtBytes": 1024,

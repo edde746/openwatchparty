@@ -102,7 +102,7 @@ func parseConfig(argv []string) (cfg relay.Config, l listen, err error) {
 	d := relay.DefaultLimits
 	maxConns := integer("max-connections", "OWP_MAX_CONNECTIONS", d.MaxConnections, "total WebSocket connections")
 	maxParticipants := integer("max-participants", "OWP_MAX_PARTICIPANTS", d.MaxParticipants,
-		"participants per room, disconnected ones included; at most 20")
+		"participants per room, disconnected ones included; at most 32")
 	connsPerIP := integer("max-connections-per-ip", "OWP_MAX_CONNECTIONS_PER_IP", d.MaxConnectionsPerIP,
 		"WebSocket connections per client IP or IPv6 /64")
 	maxRooms := integer("max-rooms", "OWP_MAX_ROOMS", d.MaxRooms, "rooms the relay holds, restored ones included")

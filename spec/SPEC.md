@@ -99,7 +99,7 @@ Three rules cover encoding, size and binary messages:
 - A message over `maxMessageBytes` (8192) MUST make the relay close the connection with 1009, again without an `error`.
 - A binary message gets `invalid_message`, with `re` null.
 
-In the other direction, clients MUST accept relay messages of at least 16384 bytes. Each relay message is one JSON object in one text message.
+In the other direction, clients MUST accept relay messages of at least 32768 bytes. Each relay message is one JSON object in one text message.
 
 #### Message rate
 
@@ -254,7 +254,7 @@ This is the body that `GET /v1/info` returns. Its schema is `info.schema.json`.
   "protocol": 1,
   "id": "b",
   "limits": {
-    "maxParticipants": 8, "maxMessageBytes": 8192, "maxMediaBytes": 4096, "maxExtBytes": 1024,
+    "maxParticipants": 32, "maxMessageBytes": 8192, "maxMediaBytes": 4096, "maxExtBytes": 1024,
     "maxNameLength": 32, "maxClientLength": 64, "minRate": 0.5, "maxRate": 2.0,
     "maxConnections": 10000, "maxConnectionsPerIp": 10, "maxRooms": 10000, "maxRoomsPerIp": 3,
     "ipv6Factor56": 4, "ipv6Factor48": 16, "messageBurst": 30, "messagesPerSecond": 10,
@@ -420,7 +420,7 @@ Refusals, in order:
 1. `client_blocked` when the deny list of §11.9 refuses the app.
 2. `rate_limited` when the client IP or the relay has no join allowance left, as described below.
 3. `room_not_found` when no room has this code, unless `create` is `true`. Then the relay makes the room, as described below.
-4. `room_full` when the room has `maxParticipants` (8) participants, disconnected ones included.
+4. `room_full` when the room has `maxParticipants` (32) participants, disconnected ones included.
 5. `room_locked` when the room is locked.
 
 The join allowance works with token buckets:
@@ -947,7 +947,7 @@ A participant has a peer ID, a token, a `name`, a `client`, a place in the join 
 - A *token* is 32 bytes from a CSPRNG, written in base64url without padding as 43 characters.
 - The *join order* is the order in which participants entered the room. `resume` keeps a participant's place.
 
-A room holds at most `maxParticipants` (8) participants, connected or not.
+A room holds at most `maxParticipants` (32) participants, connected or not.
 
 ### 11.2 Membership states
 
@@ -1214,7 +1214,7 @@ Two more bounds are fixed in v1 and encoded in the schemas, but not reported in 
 
 |key|public value|meaning|section|
 |---|---|---|---|
-|`maxParticipants`|8|participants per room, disconnected ones included, at most 20 as explained below|§11.1|
+|`maxParticipants`|32|participants per room, disconnected ones included, at most 32 as explained below|§11.1|
 |`maxConnections`|10000|open WebSocket connections on the relay|§3.1|
 |`maxConnectionsPerIp`|10|open WebSocket connections per address group, times its factor|§3.1|
 |`maxRooms`|10000|rooms the relay holds, beyond which `create` and a `join` that would make a room get `relay_full`|§11.10|
@@ -1228,7 +1228,7 @@ Two more bounds are fixed in v1 and encoded in the schemas, but not reported in 
 |`joinBurstTotal`|2000|relay-wide join bucket size|§7.2|
 |`joinsPerSecondTotal`|200|relay-wide join refill per second|§7.2|
 
-`maxParticipants` is at most 20, so that every relay message stays within the 16384 bytes that clients accept under §3.1.
+`maxParticipants` is at most 32, so that every relay message stays within the 32768 bytes that clients accept under §3.1.
 
 ### 13.3 Policy durations (`policy`)
 

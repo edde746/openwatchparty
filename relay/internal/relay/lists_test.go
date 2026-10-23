@@ -61,7 +61,7 @@ func TestConfigValidation(t *testing.T) {
 		"id":           func(c *Config) { c.ID = "Bad ID" },
 		"timer scale":  func(c *Config) { c.TimerScale = 0 },
 		"participants": func(c *Config) { c.Limits.MaxParticipants = 0 },
-		"21 per room":  func(c *Config) { c.Limits.MaxParticipants = 21 },
+		"33 per room":  func(c *Config) { c.Limits.MaxParticipants = 33 },
 		"message rate": func(c *Config) { c.Limits.MessagesPerSecond = 0 },
 		"prefixes":     func(c *Config) { c.Prefixes = "0" },
 	}
@@ -73,9 +73,9 @@ func TestConfigValidation(t *testing.T) {
 		}
 	}
 	cfg := testConfig()
-	cfg.Limits.MaxParticipants = 20
+	cfg.Limits.MaxParticipants = 32
 	if _, err := New(cfg); err != nil {
-		t.Errorf("20 participants refused: %v", err)
+		t.Errorf("32 participants refused: %v", err)
 	}
 }
 

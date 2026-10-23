@@ -58,7 +58,7 @@ features:
 
 <div class="home-facts">
 
-- **Up to 8** people in a room, by default
+- **Up to 32** people in a room, by default
 - **5 minutes** for a dropped connection to resume
 - **24 hours** at most for a room
 

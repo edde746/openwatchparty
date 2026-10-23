@@ -22,7 +22,7 @@ var protocolLimits = map[string]float64{
 
 // policyLimits are the other `limits`, at the public relays' values (§13.2). Each relay chooses its own.
 var policyLimits = map[string]float64{
-	"maxParticipants": 8, "maxConnections": 10000, "maxConnectionsPerIp": 10, "maxRooms": 10000, "maxRoomsPerIp": 3,
+	"maxParticipants": 32, "maxConnections": 10000, "maxConnectionsPerIp": 10, "maxRooms": 10000, "maxRoomsPerIp": 3,
 	"ipv6Factor56": 4, "ipv6Factor48": 16, "messageBurst": 30, "messagesPerSecond": 10, "joinBurst": 20,
 	"joinsPerSecond": 1, "joinBurstTotal": 2000, "joinsPerSecondTotal": 200,
 }
@@ -30,9 +30,9 @@ var policyLimits = map[string]float64{
 // rateLimits are the policy limits that are refill rates: any positive number. The others are positive ints.
 var rateLimits = map[string]bool{"messagesPerSecond": true, "joinsPerSecond": true, "joinsPerSecondTotal": true}
 
-// policyMax are the upper bounds §13.2 sets on policy limits: at most 20 participants, so every relay message stays
-// within the 16384 bytes clients accept.
-var policyMax = map[string]float64{"maxParticipants": 20}
+// policyMax are the upper bounds §13.2 sets on policy limits: at most 32 participants, so every relay message stays
+// within the 32768 bytes clients accept.
+var policyMax = map[string]float64{"maxParticipants": 32}
 
 // policyDefault is `policy` at the public relays' values, unscaled (§13.3).
 var policyDefault = map[string]float64{

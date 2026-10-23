@@ -1,4 +1,4 @@
-// The platform WebSocket against a scripted relay: clients accept relay messages of 16384 bytes and more (SPEC.md
+// The platform WebSocket against a scripted relay: clients accept relay messages of 32768 bytes and more (SPEC.md
 // §3.1). Within today's limits a relay sends nothing this large, so the relay is a few lines of RFC 6455 here.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -64,7 +64,7 @@ function readFrames(buf: Buffer): [string[], Buffer] {
   return [texts, buf];
 }
 
-/** Answers pings, and answers `join` with a 20000-byte `joined` followed by a 70000-byte `room`. */
+/** Answers pings, and answers `join` with a 40000-byte `joined` followed by a 70000-byte `room`. */
 function relay(req: IncomingMessage, socket: Duplex): void {
   sockets.push(socket);
   const accept = createHash("sha1")
@@ -80,14 +80,14 @@ function relay(req: IncomingMessage, socket: Duplex): void {
       if (msg["type"] === "ping") socket.write(frame(JSON.stringify({ type: "pong", id: msg["id"], serverTime: 1000 })));
       if (msg["type"] !== "join") continue;
       const joined = { type: "joined", code: CODE, you: { peerId: "p1", token: "t".repeat(43) }, room, media: null, serverTime: 1000 };
-      socket.write(frame(padded(joined, 20_000)));
+      socket.write(frame(padded(joined, 40_000)));
       socket.write(frame(padded({ type: "room", ...room, rev: 2 }, 70_000)));
     }
   });
   socket.on("error", () => {});
 }
 
-test("relay messages of 16384 bytes and more are accepted: a 20000-byte joined and a 70000-byte room", async () => {
+test("relay messages of 32768 bytes and more are accepted: a 40000-byte joined and a 70000-byte room", async () => {
   const port = await freePort();
   const server = createServer();
   server.on("upgrade", relay);

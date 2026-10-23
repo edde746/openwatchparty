@@ -157,12 +157,12 @@ internal class IntegrationTest : RelayTest() {
     }
 
     /**
-     * SPEC.md §3.1: a relay message of 16384 bytes and more arrives through the app's Ktor client. A relay's rooms stay
+     * SPEC.md §3.1: a relay message of 32768 bytes and more arrives through the app's Ktor client. A relay's rooms stay
      * below that (SPEC.md §13.2), so a scripted relay answers `join` with a `joined` padded past it by a member the SDK
      * doesn't know.
      */
     @Test
-    fun aRelayMessageOf16384BytesAndMoreIsAccepted() = test {
+    fun aRelayMessageOf32768BytesAndMoreIsAccepted() = test {
         val (code, peerId, token) = Triple("K7MQ2X", "p1", "A".repeat(43))
         val scripted = use(
             ScriptedRelay(Ports.take()) { message ->
@@ -200,7 +200,7 @@ internal class IntegrationTest : RelayTest() {
                     }
                     put("media", JsonNull)
                     put("serverTime", System.currentTimeMillis())
-                    put("padding", "x".repeat(16384))
+                    put("padding", "x".repeat(32768))
                 }.toString()
             },
         )
@@ -216,7 +216,7 @@ internal class IntegrationTest : RelayTest() {
             measured,
         )
         party.join(code)
-        assertTrue(measured.largest > 16384, "the largest message was ${measured.largest} bytes")
+        assertTrue(measured.largest > 32768, "the largest message was ${measured.largest} bytes")
         assertEquals(Connection.CONNECTED, party.state.value.connection)
         assertEquals("K7MQ2X", party.state.value.room?.code)
     }

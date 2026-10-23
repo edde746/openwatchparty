@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -594,6 +595,52 @@ func TestMediaEndFarAwayWaits(t *testing.T) {
 		t.Errorf("the media-end timer re-armed %d times in 100 ms; phase %s", r.mediaEnd.gen-gen, r.phase)
 	}
 	r.stopPlaying()
+	r.closed = true
+}
+
+// TestLargestMessageFitsClients: a room of participantsBound members, every
+// snapshot field at its longest, sends `joined` and `room` within the 32768
+// bytes clients accept (SPEC.md §3.1, §13.2). U+2028 is the longest name and
+// client character on the wire: encoding/json writes it as a 6-byte escape.
+func TestLargestMessageFitsClients(t *testing.T) {
+	s, err := New(testConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := newRoom(s, "K7MQ2X", s.now())
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.peerSeq = 1e15 // 16-character peer IDs
+	delta := int64(-maxSafeInteger)
+	name, client := strings.Repeat("\u2028", maxNameRunes), strings.Repeat("\u2028", maxClientRunes-1)+"/"
+	var conns []*conn
+	var p *participant
+	for range participantsBound {
+		c := &conn{srv: s, send: make(chan []byte, 1), done: make(chan struct{})}
+		p, _ = r.add(c, name, client, s.now())
+		p.player, p.offsetMs = playerBuffering, -maxDurationMs
+		p.match = &matchState{State: matchUnavailable, DeltaMs: &delta}
+		r.waitingOn = append(r.waitingOn, p)
+		conns = append(conns, c)
+	}
+	r.rev, r.epoch, r.atMs, r.positionMs = maxSafeInteger-1, maxSafeInteger, maxSafeInteger, maxDurationMs
+	r.phase, r.rate, r.control = phaseWaiting, 1.0000000000000002, controlEveryone
+	r.media = []byte(`{"kind":"movie","title":"` + strings.Repeat("x", maxMediaBytes-27) + `"}`)
+	r.act("media", p.peerID)
+	r.newEpoch = true
+	r.publish(p, newToken()) // the last one joins; everyone else gets `room` with the media
+	sizes := map[string]int{}
+	for _, c := range conns {
+		msg := <-c.send
+		var head struct{ Type string }
+		if err := json.Unmarshal(msg, &head); err != nil {
+			t.Fatal(err)
+		}
+		sizes[head.Type] = max(sizes[head.Type], len(msg))
+	}
+	if len(sizes) != 2 || sizes["joined"] > 32768 || sizes["room"] > 32768 {
+		t.Errorf("largest messages %v, want joined and room within 32768 bytes", sizes)
+	}
 	r.closed = true
 }
 

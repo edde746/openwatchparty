@@ -1,6 +1,6 @@
 # Privacy notice for the public relay
 
-Effective: 19 October 2026
+Effective: 23 October 2026
 
 ## Summary
 
@@ -157,7 +157,7 @@ Your data reaches these recipients, and no others:
 - Hosting providers. They host the servers, process the traffic to them and hold the daily backup of each server's disk.
 - Authorities, only when the law requires it. They then receive only what still exists. There is nothing about a room deleted more than a day ago, and no address that is no longer in memory.
 
-Anyone who has the room code can join the room, up to 8 participants, until the host locks it.
+Anyone who has the room code can join the room, up to 32 participants, until the host locks it.
 
 ## Where it is processed
 

@@ -96,9 +96,9 @@ void main() {
     await until(() => pb.paused, 'Ben following a pause after the resume');
   });
 
-  test('a relay message of 16384 bytes and more is accepted', () async {
-    // A relay holds at most 20 participants, so its messages stay under 16384 bytes (SPEC.md §13.2), but a later v1
-    // relay may add members. This server answers join with a joined that carries an unknown member of 20000 bytes.
+  test('a relay message of 32768 bytes and more is accepted', () async {
+    // A relay holds at most 32 participants, so its messages stay under 32768 bytes (SPEC.md §13.2), but a later v1
+    // relay may add members. This server answers join with a joined that carries an unknown member of 40000 bytes.
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, TestRelay.nextPort());
     addTearDown(() => server.close(force: true));
     server.transform(WebSocketTransformer()).listen((socket) {
@@ -108,7 +108,7 @@ void main() {
           case 'ping':
             socket.add(jsonEncode({'type': 'pong', 'id': message['id'], 'serverTime': 0}));
           case 'join':
-            socket.add(jsonEncode({...joined(), 'notes': 'x' * 20000}));
+            socket.add(jsonEncode({...joined(), 'notes': 'x' * 40000}));
         }
       });
     });
@@ -116,7 +116,7 @@ void main() {
     final party = newParty(Relays.at('http://127.0.0.1:${server.port}'), 'Ben',
         connect: (url) async => _Measured(await WebSocket.connect(url), sizes));
     await party.join('K7MQ2X');
-    expect(sizes.reduce(max), greaterThanOrEqualTo(16384));
+    expect(sizes.reduce(max), greaterThanOrEqualTo(32768));
     expect(party.state.room!.participants, hasLength(2));
   });
 }

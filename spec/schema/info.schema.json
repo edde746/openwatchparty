@@ -65,7 +65,7 @@
         },
         "maxParticipants": {
           "$ref": "common.schema.json#/$defs/posInt",
-          "maximum": 20
+          "maximum": 32
         },
         "maxConnections": {
           "$ref": "common.schema.json#/$defs/posInt"

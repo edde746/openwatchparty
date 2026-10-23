@@ -47,10 +47,10 @@ struct SessionTests {
 
     // MARK: Relay input (SDK.md §8)
 
-    @Test func aRelayMessageOf16384BytesAndMoreIsAccepted() async throws {
+    @Test func aRelayMessageOf32768BytesAndMoreIsAccepted() async throws {
         let s = try await joinedSession()
-        let padded = roomMessage(rev: 2, "p1", "p2", "p3").with(["padding": .string(String(repeating: "x", count: 16384))])
-        #expect(padded.description.utf8.count > 16384)
+        let padded = roomMessage(rev: 2, "p1", "p2", "p3").with(["padding": .string(String(repeating: "x", count: 32768))])
+        #expect(padded.description.utf8.count > 32768)
         s.socket.reply(padded)
         await s.clock.run()
         #expect(s.state.room?.rev == 2)
