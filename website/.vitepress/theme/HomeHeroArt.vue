@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // The home page's hero picture: three different players (a browser, a TV, a phone) show the same frame of the same
-// title at the same moment, joined to one room code. Drawn here so the site loads no image; the frame is one <symbol>
-// used three times. It moves only for readers who haven't asked for reduced motion.
+// title at the same moment, joined to one room code. The frame is a still from the open movie Tears of Steel (CC BY 3.0,
+// credited under the picture), in one <symbol> used three times. It moves only for readers who haven't asked for
+// reduced motion.
 interface Screen {
   x: number
   y: number
@@ -38,32 +39,13 @@ function controls({ x, y, w, h }: Screen) {
       aria-label="A browser, a TV and a phone show the same frame of the same title, joined to room K7M-Q2X"
     >
       <defs>
-        <linearGradient id="owp-art-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#17123f" />
-          <stop offset="0.55" stop-color="#4a2a78" />
-          <stop offset="0.8" stop-color="#d8735b" />
-        </linearGradient>
-        <radialGradient id="owp-art-sun" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0.45" stop-color="#ffd59a" />
-          <stop offset="1" stop-color="#ffd59a" stop-opacity="0" />
-        </radialGradient>
         <linearGradient id="owp-art-shade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#000" stop-opacity="0" />
           <stop offset="1" stop-color="#000" stop-opacity="0.65" />
         </linearGradient>
         <!-- One frame of the title every player shows. -->
         <symbol id="owp-art-frame" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice">
-          <rect width="160" height="90" fill="url(#owp-art-sky)" />
-          <circle cx="12" cy="10" r="0.7" fill="#fff" opacity="0.8" />
-          <circle cx="34" cy="20" r="0.5" fill="#fff" opacity="0.6" />
-          <circle cx="58" cy="8" r="0.6" fill="#fff" opacity="0.7" />
-          <circle cx="92" cy="15" r="0.5" fill="#fff" opacity="0.6" />
-          <circle cx="140" cy="9" r="0.7" fill="#fff" opacity="0.8" />
-          <circle cx="110" cy="57" r="22" fill="url(#owp-art-sun)" />
-          <circle cx="110" cy="57" r="9" fill="#ffe2b4" />
-          <path d="M0 62 22 45l15 11 21-19 22 21 20-12 24 14 20-17 16 11v26H0Z" fill="#33255f" />
-          <path d="M0 72c18-9 36-9 56-2s40 4 58-3 32-4 46 1v22H0Z" fill="#1b1438" />
-          <rect y="80" width="160" height="10" fill="#120d29" />
+          <image href="/tears-of-steel.webp" width="160" height="90" preserveAspectRatio="xMidYMid slice" />
         </symbol>
       </defs>
 
@@ -112,6 +94,10 @@ function controls({ x, y, w, h }: Screen) {
         <text class="code-text" x="318" y="263" text-anchor="middle">K7M-Q2X</text>
       </g>
     </svg>
+    <p class="credit">
+      Frame from <a href="https://mango.blender.org/">Tears of Steel</a>, (CC) Blender Foundation,
+      <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>
+    </p>
   </div>
 </template>
 
@@ -139,6 +125,21 @@ svg {
   width: 100%;
   height: auto;
   overflow: visible;
+}
+
+.credit {
+  position: relative;
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--vp-c-text-3);
+}
+
+.credit a {
+  color: inherit;
+  text-decoration: underline;
+  white-space: nowrap;
 }
 
 .device {
