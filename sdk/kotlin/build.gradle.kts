@@ -97,10 +97,15 @@ kotlin {
         extensions.configure<KotlinMultiplatformAndroidLibraryTarget>("android") {
             namespace = "party.openwatch"
             compileSdk = 37
-            minSdk = 26
+            minSdk = 23
             compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
             // Runs commonTest (the vectors) on the Android host JVM as well.
             withHostTestBuilder {}
+            // And on a device or emulator (`connectedAndroidDeviceTest`). CI runs it at minSdk, where a call that old
+            // Android lacks fails.
+            withDeviceTestBuilder { sourceSetTreeName = "test" }.configure {
+                instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+            }
         }
     }
 
@@ -130,6 +135,11 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.ktor.client.okhttp)
+        }
+        if (androidEnabled) {
+            getByName("androidDeviceTest").dependencies {
+                implementation(libs.androidx.test.runner)
+            }
         }
     }
 }

@@ -39,7 +39,7 @@ The SDK builds all its targets from `commonMain` code: `jvm`, Android, `iosArm64
 
 Apple targets produce klibs. A Swift-only app therefore needs its own Kotlin Multiplatform module that depends on the SDK.
 
-JVM and Android bytecode targets 17. Android uses `compileSdk = 37` with `minSdk = 26`.
+JVM and Android bytecode targets 17. Android uses `compileSdk = 37` with `minSdk = 23`.
 
 The SDK is built with these versions:
 
@@ -450,13 +450,16 @@ Run these commands from `sdk/kotlin` in a checkout. Gradle 9.8.0 needs a JVM fro
 ```
 ./gradlew --console=plain assemble check
 ./gradlew --console=plain -Popenwatchparty.android=false compileKotlinIosArm64 compileKotlinTvosArm64 macosArm64Test iosSimulatorArm64Test tvosSimulatorArm64Test
+./gradlew --console=plain connectedAndroidDeviceTest
 ```
 
 `assemble check` builds JVM and Android, plus the Apple targets and their tests on a Mac. The Android target is on when an Android SDK is known, and `-Popenwatchparty.android=false` skips it. The second line is the Apple CI job.
 
+The third line runs the unit suites on a connected Android device or emulator. CI runs it on an API 23 emulator, the SDK's `minSdk`, so a call that old Android lacks fails there.
+
 | Suite | Source set | Runs on | Needs |
 |---|---|---|---|
-| Unit: `PartyTest`, `RelayListTest`, `VectorTest`, `WireTest`, `TimersTest` | `src/commonTest` | Every test task: `jvmTest`, `testAndroidHostTest`, `macosArm64Test`, `iosSimulatorArm64Test`, `tvosSimulatorArm64Test` | `generateTestData`, which runs automatically |
+| Unit: `PartyTest`, `RelayListTest`, `VectorTest`, `WireTest`, `TimersTest` | `src/commonTest` | Every test task: `jvmTest`, `testAndroidHostTest`, `connectedAndroidDeviceTest`, `macosArm64Test`, `iosSimulatorArm64Test`, `tvosSimulatorArm64Test` | `generateTestData`, which runs automatically; a device or emulator for `connectedAndroidDeviceTest` |
 | Integration: `IntegrationTest` | `src/jvmTest` | `jvmTest` only | Go, and a relay on 127.0.0.1 ports 18300–18349 |
 
 ## Links

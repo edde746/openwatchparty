@@ -124,11 +124,12 @@ dart analyze --fatal-infos
 dart test
 ```
 
-`sdk/kotlin/` (last line: CI's macOS job, needs macOS with Xcode):
+`sdk/kotlin/` (second line: CI's macOS job, needs macOS with Xcode; last line: CI's API 23 emulator job, needs a running device or emulator):
 
 ```sh
 ./gradlew --console=plain assemble check
 ./gradlew --console=plain -Popenwatchparty.android=false compileKotlinIosArm64 compileKotlinTvosArm64 macosArm64Test iosSimulatorArm64Test tvosSimulatorArm64Test
+./gradlew --console=plain connectedAndroidDeviceTest
 ```
 
 Repository root (Swift):
