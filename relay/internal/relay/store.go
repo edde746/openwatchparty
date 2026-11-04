@@ -44,6 +44,7 @@ func saveInterval(rooms int) time.Duration {
 type stateFile struct {
 	Version int          `json:"version"`
 	Rooms   []roomRecord `json:"rooms"`
+	Reserved []string `json:"reserved,omitempty"`
 }
 
 type roomRecord struct {
@@ -136,6 +137,14 @@ func (st *store) save() (playing bool) {
 	rooms := st.srv.roomList()
 	now := st.srv.now()
 	file := stateFile{Version: stateVersion, Rooms: make([]roomRecord, 0, len(rooms))}
+	if st.srv.cfg.PermanentRooms {
+		st.srv.mu.Lock()
+		for code := range st.srv.reserved {
+			file.Reserved = append(file.Reserved, code)
+		}
+		st.srv.mu.Unlock()
+		slices.Sort(file.Reserved)
+	}
 	for _, r := range rooms {
 		r.mu.Lock()
 		if !r.closed {
@@ -225,6 +234,13 @@ func (s *Server) restore() {
 		return
 	}
 	now, wall := s.now(), time.Now()
+	if s.cfg.PermanentRooms {
+		for _, code := range file.Reserved {
+			if validCode(code) {
+				s.reserved[code] = true
+			}
+		}
+	}
 	invalid, expired := 0, 0
 	for i := range file.Rooms {
 		r, err := s.restoreRoom(&file.Rooms[i], now, wall)
@@ -235,6 +251,9 @@ func (s *Server) restore() {
 			expired++
 		default:
 			s.rooms[r.code] = r
+			if s.cfg.PermanentRooms {
+				s.reserved[r.code] = true
+			}
 		}
 	}
 	if invalid > 0 {

@@ -29,6 +29,7 @@ type Config struct {
 	Prefixes     string // first characters this relay creates codes with; "" means all
 	DenylistPath string
 	StateDir     string // "" disables persistence
+	PermanentRooms bool // reserve room codes after sessions close
 	TrustProxy   bool
 	Limits       Limits
 	TimerScale   float64
@@ -61,6 +62,7 @@ type Server struct {
 
 	mu    sync.Mutex
 	rooms map[string]*Room
+	reserved map[string]bool // permanent codes, guarded by mu
 
 	connMu sync.Mutex
 	conns  map[*conn]struct{}
@@ -81,6 +83,9 @@ func New(cfg Config) (*Server, error) {
 	if err := cfg.Limits.check(); err != nil {
 		return nil, err
 	}
+	if cfg.PermanentRooms && cfg.StateDir == "" {
+		return nil, errors.New("permanent rooms require --state-dir")
+	}
 	prefixes := codeAlphabet
 	if cfg.Prefixes != "" {
 		p, err := normalizePrefixes(cfg.Prefixes)
@@ -90,7 +95,7 @@ func New(cfg Config) (*Server, error) {
 		prefixes = p
 	}
 	s := &Server{cfg: cfg, prefixes: prefixes, start: time.Now(), limits: newIPLimits(cfg.Limits),
-		rooms: make(map[string]*Room), conns: make(map[*conn]struct{}), stop: make(chan struct{}),
+		rooms: make(map[string]*Room), reserved: make(map[string]bool), conns: make(map[*conn]struct{}), stop: make(chan struct{}),
 		denyFile: watchedFile{path: cfg.DenylistPath}}
 	s.reloadDeny()
 	if cfg.StateDir == "" {
@@ -180,10 +185,13 @@ func (s *Server) create(c *conn, name, client string) bool {
 		s.mu.Unlock()
 		return false
 	}
-	for r.code == "" || s.rooms[r.code] != nil {
+	for r.code == "" || s.rooms[r.code] != nil || s.reserved[r.code] {
 		r.code = newRoomCode(s.prefixes)
 	}
 	s.rooms[r.code] = r
+	if s.cfg.PermanentRooms {
+		s.reserved[r.code] = true
+	}
 	s.mu.Unlock()
 	r.open(c, name, client)
 	return true
@@ -196,7 +204,7 @@ func (s *Server) create(c *conn, name, client string) bool {
 func (s *Server) join(c *conn, code, name, client string, create bool) (made bool, err *relayError) {
 	for {
 		var r *Room
-		if create {
+		if create || s.isReserved(code) {
 			if r, err = s.lookupOrMake(c, code, name, client); r == nil {
 				return err == nil, err
 			}
@@ -204,7 +212,7 @@ func (s *Server) join(c *conn, code, name, client string, create bool) (made boo
 			return false, &relayError{errRoomNotFound, "no room has that code"}
 		}
 		r.mu.Lock()
-		if !create || !r.closed {
+		if !r.closed {
 			err = r.join(c, name, client, s.now())
 			r.mu.Unlock()
 			return false, err
@@ -252,7 +260,20 @@ func (s *Server) claim(r *Room) (*Room, *relayError) {
 		return nil, &relayError{errRelayFull, "the relay holds its maximum number of rooms"}
 	}
 	s.rooms[r.code] = r
+	if s.cfg.PermanentRooms {
+		s.reserved[r.code] = true
+	}
 	return nil, nil
+}
+
+// isReserved reports whether the code is owned by a permanent room.
+func (s *Server) isReserved(code string) bool {
+	if !s.cfg.PermanentRooms {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.reserved[normalizeCode(code)]
 }
 
 // removeRoom forgets a closed room; the caller holds r.mu. The room leaves

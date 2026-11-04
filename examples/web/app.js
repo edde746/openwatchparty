@@ -114,12 +114,12 @@ async function start(create) {
   }
   party.on("state", render);
   party.on("event", onEvent);
-  say(create ? "Creating a room…" : "Joining…");
+  say(create ? "Creating a room…" : "Joining (or reopening a saved room)…");
   const own = party;
   try {
     if (create) await own.create();
     else await own.join($("code").value);
-    say(create ? "Room created. Share the code." : "Joined.");
+    say(create ? "Room created. Save this code to reuse it." : "Joined. Saved room codes can be reused.");
     if (create) share();
   } catch (e) {
     if (own === party) say(problem(e)); // else the user started another session

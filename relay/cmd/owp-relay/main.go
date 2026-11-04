@@ -98,6 +98,7 @@ func parseConfig(argv []string) (cfg relay.Config, l listen, err error) {
 	prefixes := str("prefixes", "OWP_PREFIXES", "", "first characters this relay creates codes with (default all 31)")
 	deny := str("denylist", "OWP_DENYLIST", "", "client app deny list file, re-read on change")
 	stateDir := str("state-dir", "OWP_STATE_DIR", "", "directory for room snapshots and usage counts (default: none)")
+	permanentRooms := boolean("permanent-rooms", "OWP_PERMANENT_ROOMS", false, "retain room codes across sessions (requires --state-dir)")
 	trust := boolean("trust-proxy", "OWP_TRUST_PROXY", false, "take the client IP from the first X-Forwarded-For hop")
 	d := relay.DefaultLimits
 	maxConns := integer("max-connections", "OWP_MAX_CONNECTIONS", d.MaxConnections, "total WebSocket connections")
@@ -136,7 +137,7 @@ func parseConfig(argv []string) (cfg relay.Config, l listen, err error) {
 	if fs.NArg() > 0 {
 		return cfg, l, fmt.Errorf("unexpected argument %q", fs.Arg(0))
 	}
-	cfg = relay.Config{ID: *id, Prefixes: *prefixes, DenylistPath: *deny, StateDir: *stateDir, TrustProxy: *trust,
+	cfg = relay.Config{ID: *id, Prefixes: *prefixes, DenylistPath: *deny, StateDir: *stateDir, PermanentRooms: *permanentRooms, TrustProxy: *trust,
 		TimerScale: *scale,
 		Limits: relay.Limits{MaxParticipants: *maxParticipants, MaxConnections: *maxConns,
 			MaxConnectionsPerIP: *connsPerIP, MaxRooms: *maxRooms, MaxRoomsPerIP: *roomsPerIP, IPv6Factor56: *factor56,

@@ -210,6 +210,22 @@ A `create`, `join` or `resume` from a listed app gets `client_blocked`. Particip
 
 With `--state-dir`, rooms survive a restart. Without it, nothing survives.
 
+### Permanent reusable room codes (optional)
+
+Set `OWP_PERMANENT_ROOMS=true` (or `--permanent-rooms`) and configure a persistent
+`OWP_STATE_DIR` volume. The relay then reserves every generated/created room code
+in `rooms.json`. A room still closes when empty or after 24 hours; only its code
+survives. The next normal `join` to that reserved code starts a fresh idle
+session, with the first visitor becoming host. Existing active sessions still
+restore with their prior participants during their ordinary reconnect window.
+
+Add `OWP_PERMANENT_ROOMS: "true"` to the relay service environment in your
+Compose file. The example `relay-state` volume is already persistent; keep it
+across redeployments. A state directory is required when this option is on.
+The reservation list grows over time and has no deletion UI, so this option is
+best for small self-hosted relays rather than public deployments.
+
+
 ### What the relay saves
 
 The relay creates the state directory with mode 0700 and keeps two files in it:
